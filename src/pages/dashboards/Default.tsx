@@ -172,8 +172,9 @@ export const DefaultDashboardPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Default | Antd Dashboard</title>
+        <title>Admin panel</title>
       </Helmet>
+
       <PageHeader
         title="default dashboard"
         breadcrumbs={[

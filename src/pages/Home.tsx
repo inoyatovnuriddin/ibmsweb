@@ -14,10 +14,10 @@ import {
   AppstoreOutlined,
   BorderOutlined,
   CalendarOutlined,
+  DatabaseOutlined,
   EditOutlined,
   FileOutlined,
   FormatPainterOutlined,
-  GithubOutlined,
   LoginOutlined,
   MergeCellsOutlined,
   PieChartOutlined,
@@ -26,73 +26,74 @@ import {
 } from '@ant-design/icons';
 import { Card, Container } from '../components';
 import { createElement, CSSProperties } from 'react';
+import { CorporateContactPage } from './corporate';
 
 const { Title, Text } = Typography;
 
 const DASHBOARDS = [
   {
-    title: 'bidding',
+    title: '1. Автомобильный электрик',
     link: PATH_DASHBOARD.bidding,
-    image: '/showcase/dashboard/bidding.png',
+    image: '/showcase/dashboard/image1.png',
   },
   {
-    title: 'default',
+    title: '2. Аппаратчик химводоочиски',
     link: PATH_DASHBOARD.default,
-    image: '/showcase/dashboard/default.png',
+    image: '/showcase/dashboard/image2.png',
   },
   {
-    title: 'ecommerce',
+    title: '3. Аттестация сварщиков',
     link: PATH_DASHBOARD.ecommerce,
-    image: '/showcase/dashboard/ecommerce.png',
+    image: '/showcase/dashboard/image3.png',
   },
   {
-    title: 'learning',
+    title: '4. Безопасное ведение работ...',
     link: PATH_DASHBOARD.learning,
-    image: '/showcase/dashboard/learning.png',
+    image: '/showcase/dashboard/image4.png',
   },
   {
-    title: 'logistics',
+    title: '5. Безопасное ведение работ...',
     link: PATH_DASHBOARD.logistics,
-    image: '/showcase/dashboard/logistics.png',
+    image: '/showcase/dashboard/image5.png',
   },
   {
-    title: 'marketing',
+    title: '6. Безопасное ведение работ...',
     link: PATH_DASHBOARD.marketing,
-    image: '/showcase/dashboard/marketing.png',
+    image: '/showcase/dashboard/image6.png',
   },
   {
-    title: 'projects',
+    title: '7. Бурильщик ЭРБС',
     link: PATH_DASHBOARD.projects,
-    image: '/showcase/dashboard/projects.png',
+    image: '/showcase/dashboard/image7.png',
   },
   {
-    title: 'social',
+    title: '8. Водители автокары',
     link: PATH_DASHBOARD.social,
-    image: '/showcase/dashboard/social.png',
+    image: '/showcase/dashboard/image8.png',
   },
 ];
 
 const APPS = [
   {
-    title: 'corporate',
+    title: 'Корпоратив',
     link: PATH_CORPORATE.team,
     image: '/showcase/corporate/team.png',
   },
   {
-    title: 'user profile',
+    title: 'Фойдаланувчи профили',
     link: PATH_USER_PROFILE.details,
     image: '/showcase/profile/details.png',
   },
   {
-    title: 'auth',
+    title: 'Аутентификация',
     link: PATH_AUTH.signin,
     image: '/showcase/auth/login.png',
   },
-  {
-    title: 'errors',
-    link: PATH_ERROR.error400,
-    image: '/showcase/errors/400.png',
-  },
+  // {
+  //   title: 'errors',
+  //   link: PATH_ERROR.error400,
+  //   image: '/showcase/errors/400.png',
+  // },
 ];
 
 const FEATURES = [
@@ -195,7 +196,7 @@ export const HomePage = () => {
                   fontWeight: 700,
                 }}
               >
-                <RocketFilled /> Kick start your project with
+                <RocketFilled /> Масофавий таьлим портали
               </Text>
               <Title
                 style={{
@@ -204,74 +205,103 @@ export const HomePage = () => {
                   margin: '1.5rem 0',
                 }}
               >
-                A dynamic and versatile multipurpose{' '}
-                <span className="text-highlight">dashboard</span> template built
-                using <span className="text-highlight">React</span>,{' '}
-                <span className="text-highlight">Vite</span>,{' '}
-                <span className="text-highlight">Ant Design</span>, and{' '}
-                <span className="text-highlight">Storybook</span>{' '}
+                Кадрлар малакасини ошириш ва қайта тайёрлаш бўйича{' '}
+                <span className="text-highlight">интерактив</span> ва{' '}
+                <span className="text-highlight">замонавий</span> платформа.
               </Title>
               <Text style={{ fontSize: 20, marginBottom: '1.5rem' }}>
-                <span className="text-highlight fw-bolder">60+</span> ready made
-                components to use.
+                <span className="text-highlight fw-bolder">100+</span> касбий
+                курслар
+                {/*<br />*/}
+                {/*📌 Интерактив курслар <br />*/}
+                {/*📌 Сертификатлашган дастурлар <br />*/}
+                {/*📌 Мутасадди ташкилотлар тасдиғи билан*/}
               </Text>
               <Flex
                 gap="middle"
                 vertical={isMobile}
                 style={{ marginTop: '1.5rem' }}
               >
-                <Link to={PATH_AUTH.signin}>
+                <Link to={'/courses'}>
                   <Button
-                    icon={<LoginOutlined />}
+                    icon={<DatabaseOutlined />}
                     type="primary"
                     size="large"
                     block={isMobile}
                   >
-                    Live preview
+                    Курслар рўйхати
                   </Button>
                 </Link>
-                <Link to={PATH_GITHUB.repo}>
+                <Link to={PATH_AUTH.signin}>
                   <Button
-                    icon={<GithubOutlined />}
+                    icon={<LoginOutlined />}
                     type="default"
                     size="large"
                     block={isMobile}
                   >
-                    Give us a star
+                    Рўйхатдан ўтиш
                   </Button>
                 </Link>
               </Flex>
             </Col>
             {!isTablet && (
               <Col lg={12}>
-                <Image src="/landing-frame.png" alt="dashboard image snippet" />
+                <Image src="/landing-image.png" alt="dashboard image snippet" />
               </Col>
             )}
           </Row>
         </Container>
       </Flex>
+      <iframe
+        src="https://player.vimeo.com/video/1077477578?h=0f6c40966d"
+        width="800"
+        height="600"
+        frameBorder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        title="Vimeo Video"
+      ></iframe>
       <Container style={sectionStyles}>
         <Title
           level={2}
           className="text-center"
           style={{ marginBottom: '2rem' }}
         >
-          8 dashboard pages available
+          Курслар рўйхати
         </Title>
         <Row
           gutter={[
             { xs: 8, sm: 16, md: 24, lg: 32 },
             { xs: 8, sm: 16, md: 24, lg: 32 },
           ]}
+          justify="center"
         >
           {DASHBOARDS.map((dashboard) => (
-            <Col key={dashboard.title} xs={24} lg={8} xl={6}>
-              <Link to={dashboard.link}>
+            <Col
+              key={dashboard.title}
+              xs={24}
+              lg={8}
+              xl={6}
+              style={{ display: 'flex' }}
+            >
+              <Link to={dashboard.link} style={{ width: '100%' }}>
                 <Card
                   hoverable
-                  cover={<img src={dashboard.image} alt={dashboard.title} />}
+                  cover={
+                    <img
+                      src={dashboard.image}
+                      alt={dashboard.title}
+                      style={{ height: '200px', objectFit: 'fill' }}
+                    />
+                  }
+                  style={{
+                    flex: '1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  <Text className="m-0 text-capitalize">{dashboard.title}</Text>
+                  <Text className="m-0">{dashboard.title}</Text>
                 </Card>
               </Link>
             </Col>
@@ -284,16 +314,18 @@ export const HomePage = () => {
           className="text-center"
           style={{ marginBottom: '2rem' }}
         >
-          3+ pages available
+          3+ саҳифа мавжуд
         </Title>
         <Row
           gutter={[
             { xs: 8, sm: 16, md: 24, lg: 32 },
             { xs: 8, sm: 16, md: 24, lg: 32 },
           ]}
+          justify="center"
+          align="middle"
         >
           {APPS.map((app) => (
-            <Col key={app.title} xs={24} sm={12} lg={8} xl={6}>
+            <Col key={app.title} xs={24} sm={12} lg={8} xl={6} style={{ display: "flex" }}>
               <Link to={app.link}>
                 <Card hoverable cover={<img src={app.image} alt={app.title} />}>
                   <Text className="m-0 text-capitalize">{app.title}</Text>
@@ -334,6 +366,10 @@ export const HomePage = () => {
           ))}
         </Row>
       </Container>
+
+      <Container style={sectionStyles} id={"#contact"}>
+        <CorporateContactPage />
+      </Container>
       <Card
         style={{
           width: isMobile ? '95%' : 500,
@@ -342,17 +378,17 @@ export const HomePage = () => {
         }}
       >
         <Title level={4} style={{ marginTop: 0 }}>
-          Haven't found an answer to your question?
+          Саволингизга жавоб топа олмадингизми?
         </Title>
         <Text style={{ marginTop: '1rem' }}>
-          Connect with us either on discord or email us
+          Биз билан қўнғироқ орқали боғланинг ёки электрон почтага ёзинг.
         </Text>
         <Flex gap="middle" justify="center" style={{ marginTop: '1rem' }}>
-          <Button href="mailto:kelvin.kiprop96@gmail.com" type="primary">
-            Email
+          <Button href="mailto:ibms-bux@mail.ru" type="primary">
+            Электрон почта
           </Button>
-          <Button target="_blank" href={`${PATH_GITHUB.repo}/issues`}>
-            Submit an issue
+          <Button target="_blank" href={`/issues`}>
+            Муаммони юбориш
           </Button>
         </Flex>
       </Card>

@@ -36,6 +36,10 @@ import {
   WelcomePage,
   LearningDashboardPage,
   LogisticsDashboardPage,
+  DashboardCoursesPage,
+  Topics,
+  DashboardUsersPage,
+  DashboardVideosPage,
 } from '../pages';
 import {
   CorporateLayout,
@@ -43,8 +47,10 @@ import {
   GuestLayout,
   UserAccountLayout,
 } from '../layouts';
+import { CoursesPage, ViewCourse } from '../pages/course';
 import React, { ReactNode, useEffect } from 'react';
 import { AboutPage } from '../pages/About.tsx';
+import { TestPage } from '../pages/test';
 
 // Custom scroll restoration function
 export const ScrollToTop: React.FC = () => {
@@ -90,12 +96,58 @@ const router = createBrowserRouter([
     ],
   },
   {
+    path: '/courses',
+    element: <PageWrapper children={<GuestLayout />} />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        index: true,
+        path: '',
+        element: <CoursesPage />,
+      },
+    ],
+  },
+  {
+    path: '/course/:courseId',
+    element: <PageWrapper children={<GuestLayout />} />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: '',
+        element: <ViewCourse />,
+        children: [
+          {
+            path: 'test',
+            element: <TestPage />,
+          },
+        ],
+      },
+    ],
+  },
+
+  {
     path: '/dashboards',
     element: <PageWrapper children={<DashboardLayout />} />,
     errorElement: <ErrorPage />,
     children: [
       {
         index: true,
+        path: 'courses',
+        element: <DashboardCoursesPage />,
+      },
+      {
+        path: 'topics',
+        element: <Topics />,
+      },
+      {
+        path: 'videos',
+        element: <DashboardVideosPage />,
+      },
+      {
+        path: 'users',
+        element: <DashboardUsersPage />,
+      },
+      {
         path: 'default',
         element: <DefaultDashboardPage />,
       },

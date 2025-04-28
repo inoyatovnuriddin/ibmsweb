@@ -195,7 +195,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                   className=" hidden sm:inline py-1"
                   checkedChildren={<MoonOutlined />}
                   unCheckedChildren={<SunOutlined />}
-                  checked={mytheme === 'light' ? true : false}
+                  checked={mytheme === 'light'}
                   onClick={() => dispatch(toggleTheme())}
                 />
               </Tooltip>

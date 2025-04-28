@@ -90,7 +90,7 @@ export const LogisticsDashboardPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Logistics | Antd Dashboard</title>
+        <title>Logistics</title>
       </Helmet>
       <PageHeader
         title="logistics dashboard"

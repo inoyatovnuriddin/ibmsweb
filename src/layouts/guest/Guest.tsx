@@ -20,7 +20,10 @@ import {
   LoginOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  PhoneOutlined,
   ProductOutlined,
+  ReadOutlined,
+  SolutionOutlined,
 } from '@ant-design/icons';
 import { useMediaQuery } from 'react-responsive';
 import { Logo, NProgress } from '../../components';
@@ -86,36 +89,42 @@ export const GuestLayout = () => {
             top: 0,
             padding: isMobile ? '0 1rem' : '0 2rem',
             zIndex: 1,
+            color: 'white',
           }}
         >
           <Logo color="blue" asLink href={PATH_LANDING.root} />
           {!isMobile ? (
             <>
               <Flex gap="small">
-                <Link to={PATH_DOCS.productRoadmap} target="_blank">
+                <Link to={'#'}>
                   <Button icon={<ProductOutlined />} type="link">
-                    Product Roadmap
+                    Бош саҳифа
                   </Button>
                 </Link>
-                <Link to={PATH_DOCS.components} target="_blank">
-                  <Button icon={<AppstoreAddOutlined />} type="link">
-                    Components
+                <Link to={'/courses'}>
+                  <Button icon={<SolutionOutlined />} type="link">
+                    Курслaр
                   </Button>
                 </Link>
-                <Link to={PATH_GITHUB.repo} target="_blank">
-                  <Button icon={<GithubOutlined />} type="link">
-                    Give us a star
+                <Link to={'#news'}>
+                  <Button icon={<ReadOutlined />} type="link">
+                    Янгиликлар
+                  </Button>
+                </Link>{' '}
+                <Link to={'#contact'}>
+                  <Button icon={<PhoneOutlined />} type="link">
+                    Алоқа
                   </Button>
                 </Link>
                 <Link to={PATH_AUTH.signin}>
                   <Button icon={<LoginOutlined />} type="primary">
-                    Live Preview
+                    Kirish
                   </Button>
                 </Link>
               </Flex>
             </>
           ) : (
-            <Tooltip title={`${open ? 'Expand' : 'Collapse'} Sidebar`}>
+            <Tooltip title={`Менюни ${!open ? 'очиш' : 'ёпиш'}`}>
               <Button
                 type="text"
                 icon={open ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
@@ -124,6 +133,7 @@ export const GuestLayout = () => {
                   fontSize: '16px',
                   width: 48,
                   height: 48,
+                  color: 'white',
                 }}
               />
             </Tooltip>
@@ -172,31 +182,35 @@ export const GuestLayout = () => {
             backgroundColor: 'rgba(52, 152, 219, 0.2)',
           }}
         >
-          AntD Dashboard &copy; {new Date().getFullYear()} Created by Design
-          Sparx
+          IBMS &copy; {new Date().getFullYear()} Барча ҳуқуқлар ҳимояланган
         </Footer>
       </Layout>
-      <Drawer title="Menu" placement="left" onClose={onClose} open={open}>
+      <Drawer title="Меню" placement="left" onClose={onClose} open={open}>
         <>
           <Flex gap="small" vertical>
-            <Link to={PATH_DOCS.productRoadmap} target="_blank">
+            <Link to={'#'}>
               <Button icon={<ProductOutlined />} type="link">
-                Roadmap
+                Бош саҳифа
               </Button>
             </Link>
-            <Link to={PATH_DASHBOARD.default}>
-              <Button icon={<LoginOutlined />} type="text">
-                Live Preview
+            <Link to={'/courses'}>
+              <Button icon={<SolutionOutlined />} type="link">
+                Курслaр
               </Button>
             </Link>
-            <Link to={PATH_DOCS.components} target="_blank">
-              <Button icon={<AppstoreAddOutlined />} type="text">
-                Components
+            <Link to={'#news'}>
+              <Button icon={<ReadOutlined />} type="link">
+                Янгиликлар
               </Button>
             </Link>
-            <Link to={PATH_GITHUB.repo} target="_blank">
-              <Button icon={<GithubOutlined />} type="text">
-                Github
+            <Link to={'#contact'}>
+              <Button icon={<PhoneOutlined />} type="link">
+                Алоқа
+              </Button>
+            </Link>
+            <Link to={PATH_AUTH.signin}>
+              <Button icon={<LoginOutlined />} type="primary">
+                Kirish
               </Button>
             </Link>
           </Flex>

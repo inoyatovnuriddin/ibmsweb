@@ -8,29 +8,35 @@ import {
   Input,
   message,
   Row,
+  Select,
   theme,
   Typography,
 } from 'antd';
 import {
   FacebookFilled,
   GoogleOutlined,
-  TwitterOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Logo } from '../../components';
 import { useMediaQuery } from 'react-responsive';
-import { PATH_AUTH, PATH_DASHBOARD } from '../../constants';
-import { useNavigate } from 'react-router-dom';
+import { PATH_AUTH } from '../../constants';
 import { useState } from 'react';
+import moment from 'moment';
+import axios from 'axios';
 
 const { Title, Text, Link } = Typography;
+const { Option } = Select;
 
 type FieldType = {
   firstName?: string;
   lastName?: string;
   email?: string;
   password?: string;
-  cPassword?: string;
+  confirmPassword?: string;
   terms?: boolean;
+  day?: string;
+  month?: string;
+  year?: string;
 };
 
 export const SignUpPage = () => {
@@ -38,26 +44,61 @@ export const SignUpPage = () => {
     token: { colorPrimary },
   } = theme.useToken();
   const isMobile = useMediaQuery({ maxWidth: 769 });
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<FieldType>({});
+  const [isTermsChecked, setIsTermsChecked] = useState(false);
 
   const onFinish = (values: any) => {
-    console.log('Success:', values);
+    const { day, month, year } = formData;
+    if (!day || !month || !year) {
+      message.error('Илтимос, тўлиқ туғилган кунингизни киритинг.');
+      return;
+    }
+
+    const birthday = `${year}-${month}-${day}`;
+
+    const payload = {
+      firstname: values.firstName,
+      lastname: values.lastName,
+      email: values.email,
+      password: values.password,
+      confirmPassword: values.confirmPassword,
+      birthday,
+    };
+
+    console.log('Yuborilayotgan maʼlumot:', payload);
+
     setLoading(true);
 
-    message.open({
-      type: 'success',
-      content: 'Account signup successful',
+    axios.post('http://localhost:8080/api/signup', payload).then((res) => {
+      console.log(res);
+      setLoading(false);
     });
-
-    setTimeout(() => {
-      navigate(PATH_DASHBOARD.default);
-    }, 5000);
   };
 
-  const onFinishFailed = (errorInfo: any) => {
+  const onFinishFailed = (errorInfo: unknown) => {
     console.log('Failed:', errorInfo);
+    message.error('Xatolik yuz berdi!');
   };
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = [
+    'Январь',
+    'Февраль',
+    'Март',
+    'Апрель',
+    'Май',
+    'Июнь',
+    'Июль',
+    'Август',
+    'Сентябрь',
+    'Октябрь',
+    'Ноябрь',
+    'Декабрь',
+  ];
+  const monthsValue = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = Array.from({ length: 100 }, (_, i) => moment().year() - i);
 
   return (
     <Row style={{ minHeight: isMobile ? 'auto' : '100vh', overflow: 'hidden' }}>
@@ -69,13 +110,18 @@ export const SignUpPage = () => {
           className="text-center"
           style={{ background: colorPrimary, height: '100%', padding: '1rem' }}
         >
-          <Logo color="white" />
-          <Title level={2} className="text-white">
-            Welcome to Antd Admin
+          <Logo color="white" href={'/'} asLink />
+          <Title
+            level={2}
+            className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl"
+          >
+            IBMS га хуш келибсиз!
           </Title>
-          <Text className="text-white" style={{ fontSize: 18 }}>
-            A dynamic and versatile multipurpose dashboard utilizing Ant Design,
-            React, TypeScript, and Vite.
+          <Text
+            className="text-white text-sm sm:text-base md:text-lg lg:text-xl"
+            style={{ fontSize: 18 }}
+          >
+            «INTER BIZNES MEGA SERVIS» НОДАВЛАТ ТАЪЛИМ МУАССАСАСИ
           </Text>
         </Flex>
       </Col>
@@ -87,22 +133,51 @@ export const SignUpPage = () => {
           gap="middle"
           style={{ height: '100%', padding: '2rem' }}
         >
-          <Title className="m-0">Create an account</Title>
-          <Flex gap={4}>
-            <Text>Already have an account?</Text>
-            <Link href={PATH_AUTH.signin}>Sign in here</Link>
-          </Flex>
+          <Title className="m-0 text-lg sm:text-xl md:text-2xl lg:text-3xl ">
+            Рўйхатдан&nbsp;ўтиш
+          </Title>
+          <div>
+            <Text>Аллақачон рўйхатдан ўтганмисиз?</Text>&nbsp;
+            <Link href={PATH_AUTH.signin}>Тизимга киринг</Link>
+          </div>
           <Flex
             vertical={isMobile}
             gap="small"
             wrap="wrap"
             style={{ width: '100%' }}
           >
-            <Button icon={<GoogleOutlined />}>Sign up with Google</Button>
-            <Button icon={<FacebookFilled />}>Sign up with Facebook</Button>
-            <Button icon={<TwitterOutlined />}>Sign up with Twitter</Button>
+            <Button
+              icon={<GoogleOutlined />}
+              onClick={() =>
+                message.info(
+                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
+                )
+              }
+            >
+              Google билан рўйхатдан ўтиш
+            </Button>
+            <Button
+              icon={<FacebookFilled />}
+              onClick={() =>
+                message.info(
+                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
+                )
+              }
+            >
+              Facebook билан рўйхатдан ўтиш
+            </Button>
+            <Button
+              icon={<UserOutlined />}
+              onClick={() =>
+                message.info(
+                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
+                )
+              }
+            >
+              One ID орқали
+            </Button>
           </Flex>
-          <Divider className="m-0">or</Divider>
+          <Divider className="m-0">ёки</Divider>
           <Form
             name="sign-up-form"
             layout="vertical"
@@ -117,12 +192,12 @@ export const SignUpPage = () => {
             <Row gutter={[8, 0]}>
               <Col xs={24} lg={12}>
                 <Form.Item<FieldType>
-                  label="First name"
+                  label="Исм"
                   name="firstName"
                   rules={[
                     {
                       required: true,
-                      message: 'Please input your first name!',
+                      message: 'Исмингизни киритинг!',
                     },
                   ]}
                 >
@@ -131,45 +206,124 @@ export const SignUpPage = () => {
               </Col>
               <Col xs={24} lg={12}>
                 <Form.Item<FieldType>
-                  label="Last name"
+                  label="Фамилия"
                   name="lastName"
                   rules={[
-                    { required: true, message: 'Please input your last name!' },
+                    { required: true, message: 'Фамилиянгизни киритинг!' },
                   ]}
                 >
                   <Input />
                 </Form.Item>
               </Col>
+
+              <Col xs={8} lg={8}>
+                <Form.Item<FieldType>
+                  label="Туғилган&nbsp;кун"
+                  name="day"
+                  rules={[
+                    {
+                      required: true,
+                      message: 'Туғилган кунингизни киритинг!',
+                    },
+                  ]}
+                  labelCol={{ span: 24 }}
+                >
+                  <Select
+                    style={{ width: '100%' }}
+                    value={formData.day}
+                    onChange={(value) =>
+                      setFormData({ ...formData, day: value })
+                    }
+                  >
+                    {days.map((day) => (
+                      <Option key={day} value={day < 10 ? `0${day}` : `${day}`}>
+                        {day < 10 ? `0${day}` : `${day}`}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+
+              <Col xs={9} lg={8}>
+                <Form.Item<FieldType>
+                  label="Ой"
+                  name="month"
+                  rules={[{ required: true, message: 'Ойни киритинг!' }]}
+                  labelCol={{ span: 24 }}
+                >
+                  <Select
+                    style={{ width: '100%' }}
+                    value={formData.month}
+                    onChange={(value) =>
+                      setFormData({ ...formData, month: value })
+                    }
+                  >
+                    {months.map((month, index) => (
+                      <Option
+                        key={index}
+                        value={String(monthsValue[index]).padStart(2, '0')}
+                      >
+                        {month}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+
+              <Col xs={7} lg={8}>
+                <Form.Item<FieldType>
+                  label="Йил"
+                  name="year"
+                  rules={[{ required: true, message: 'Йилни киритинг!' }]}
+                  labelCol={{ span: 24 }}
+                >
+                  <Select
+                    style={{ width: '100%' }}
+                    value={formData.year}
+                    onChange={(value) =>
+                      setFormData({ ...formData, year: value })
+                    }
+                  >
+                    {years.map((year) => (
+                      <Option key={year} value={year}>
+                        {year}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+
               <Col xs={24}>
                 <Form.Item<FieldType>
-                  label="Email"
+                  label="Электрон почта"
                   name="email"
                   rules={[
-                    { required: true, message: 'Please input your email' },
+                    {
+                      required: true,
+                      message: 'Электрон почтангизни киритинг!',
+                    },
                   ]}
                 >
-                  <Input />
+                  <Input type={'email'} />
                 </Form.Item>
               </Col>
               <Col xs={24}>
                 <Form.Item<FieldType>
-                  label="Password"
+                  label="Парол"
                   name="password"
-                  rules={[
-                    { required: true, message: 'Please input your password!' },
-                  ]}
+                  rules={[{ required: true, message: 'Паролни киритинг!' }]}
                 >
                   <Input.Password />
                 </Form.Item>
               </Col>
               <Col xs={24}>
                 <Form.Item<FieldType>
-                  label="Confirm password"
-                  name="cPassword"
+                  label="Паролни тасдиқланг"
+                  name="confirmPassword"
                   rules={[
                     {
                       required: true,
-                      message: 'Please ensure passwords match!',
+                      message: 'Пароллар бир хил бўлиши керак!',
                     },
                   ]}
                 >
@@ -178,10 +332,13 @@ export const SignUpPage = () => {
               </Col>
               <Col xs={24}>
                 <Form.Item<FieldType> name="terms" valuePropName="checked">
-                  <Flex>
-                    <Checkbox>I agree to</Checkbox>
-                    <Link>terms and conditions</Link>
-                  </Flex>
+                  <Checkbox
+                    onChange={(e) => setIsTermsChecked(e.target.checked)}
+                  >
+                    Мен&nbsp;сайтдан&nbsp;фойдаланиш&nbsp;ва&nbsp;
+                    <Link>шартлари ва қоидаларига</Link>
+                    &nbsp;&nbsp;розиман
+                  </Checkbox>
                 </Form.Item>
               </Col>
             </Row>
@@ -191,8 +348,9 @@ export const SignUpPage = () => {
                 htmlType="submit"
                 size="middle"
                 loading={loading}
+                disabled={!isTermsChecked}
               >
-                Submit
+                Тасдиқлаш
               </Button>
             </Form.Item>
           </Form>

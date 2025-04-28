@@ -1,16 +1,21 @@
+// src/redux/store.ts
+
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import themeReducer, { ThemeState } from './theme/themeSlice';
+import courseReducer from './course/courseSlice'; 
 import { persistReducer, persistStore, PersistConfig } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 
 // Define the state shape
 interface RootState {
   theme: ThemeState;
+  course: ReturnType<typeof courseReducer>; 
 }
 
 // Combine reducers
 const rootReducer = combineReducers({
   theme: themeReducer,
+  course: courseReducer, 
 });
 
 // Persist config with RootState

@@ -34,6 +34,10 @@ export const PATH_LANDING = {
 
 export const PATH_DASHBOARD = {
   root: ROOTS_DASHBOARD,
+  courses: path(ROOTS_DASHBOARD, '/courses'),
+  users: path(ROOTS_DASHBOARD, '/users'),
+  topics: path(ROOTS_DASHBOARD, '/topics'),
+  videos: path(ROOTS_DASHBOARD, '/videos'),
   default: path(ROOTS_DASHBOARD, '/default'),
   projects: path(ROOTS_DASHBOARD, '/projects'),
   ecommerce: path(ROOTS_DASHBOARD, '/ecommerce'),

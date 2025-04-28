@@ -29,7 +29,6 @@ export const CorporateLayout = () => {
 
   return (
     <>
-      {/*@ts-ignore*/}
       <AppLayout>
         <PageHeader
           title="corporate"

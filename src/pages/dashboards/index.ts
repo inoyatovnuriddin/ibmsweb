@@ -6,3 +6,7 @@ export { SocialDashboardPage } from './Social.tsx';
 export { BiddingDashboardPage } from './Bidding.tsx';
 export { LearningDashboardPage } from './Learning.tsx';
 export { LogisticsDashboardPage } from './Logistics.tsx';
+export { DashboardCoursesPage } from './Courses.tsx';
+export { Topics } from './Topics.tsx';
+export { DashboardUsersPage } from './Users.tsx';
+export {DashboardVideosPage} from './Videos.tsx';

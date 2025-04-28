@@ -250,7 +250,7 @@ const CategoriesChart = () => {
     },
   };
 
-  // @ts-ignore
+
   return <Pie {...config} />;
 };
 
@@ -320,7 +320,7 @@ const CustomerRateChart = () => {
       ],
     },
   };
-  // @ts-ignore
+ 
   return <Bullet {...config} />;
 };
 
@@ -361,7 +361,7 @@ const OrdersStatusChart = () => {
     ],
   };
 
-  // @ts-ignore
+  
   return <Pie {...config} />;
 };
 

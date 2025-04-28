@@ -66,7 +66,7 @@ export const UserProfileDetailsPage = () => {
           </Col>
           <Col sm={24} lg={8}>
             <Form.Item<FieldType>
-              label="First name"
+              label="Исми"
               name="firstName"
               rules={[
                 { required: true, message: 'Please input your first name!' },
@@ -75,20 +75,20 @@ export const UserProfileDetailsPage = () => {
               <Input />
             </Form.Item>
           </Col>
+          {/*<Col sm={24} lg={8}>*/}
+          {/*  <Form.Item<FieldType>*/}
+          {/*    label="Middle name"*/}
+          {/*    name="middleName"*/}
+          {/*    rules={[*/}
+          {/*      { required: true, message: 'Please input your middle name!' },*/}
+          {/*    ]}*/}
+          {/*  >*/}
+          {/*    <Input />*/}
+          {/*  </Form.Item>*/}
+          {/*</Col>*/}
           <Col sm={24} lg={8}>
             <Form.Item<FieldType>
-              label="Middle name"
-              name="middleName"
-              rules={[
-                { required: true, message: 'Please input your middle name!' },
-              ]}
-            >
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col sm={24} lg={8}>
-            <Form.Item<FieldType>
-              label="Last name"
+              label="Фамилия"
               name="lastName"
               rules={[
                 { required: true, message: 'Please input your last name!' },
@@ -99,7 +99,7 @@ export const UserProfileDetailsPage = () => {
           </Col>
           <Col sm={24} lg={12}>
             <Form.Item<FieldType>
-              label="Email"
+              label="Электрон почта"
               name="email"
               rules={[{ required: true, message: 'Please input your email!' }]}
             >
@@ -117,17 +117,7 @@ export const UserProfileDetailsPage = () => {
               <Input />
             </Form.Item>
           </Col>
-          <Col sm={24} lg={12}>
-            <Form.Item<FieldType>
-              label="Company"
-              name="company"
-              rules={[
-                { required: true, message: 'Please input your company!' },
-              ]}
-            >
-              <Input />
-            </Form.Item>
-          </Col>
+          
           <Col sm={24} lg={12}>
             <Form.Item<FieldType>
               label="Subscription"
@@ -163,7 +153,7 @@ export const UserProfileDetailsPage = () => {
         </Row>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />}> 
             Save changes
           </Button>
         </Form.Item>

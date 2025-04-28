@@ -2,21 +2,25 @@ import axios, { AxiosError, AxiosResponse } from 'axios';
 import { JError } from '../types';
 import { API_URL } from '../constants';
 
-
 const requestAPI = axios.create({
   baseURL: API_URL,
   timeout: 60000,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   },
 });
 
 requestAPI.interceptors.request.use(
-  (config) => config,
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
   (error) => {
-    console.error("Request error:", error);
+    console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -25,7 +29,7 @@ requestAPI.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      window.location.href = "/auth/signin";
+      window.location.href = '/auth/signin';
       return Promise.reject(error);
     }
 
@@ -33,12 +37,12 @@ requestAPI.interceptors.response.use(
     if (error.code === 'ERR_NETWORK') {
       response = {
         code: 504,
-        message: "Network error. Server is not reachable.",
+        message: 'Network error. Server is not reachable.',
       };
     } else {
-      response = error?.response?.data as JError || {
+      response = (error?.response?.data as JError) || {
         code: error.response?.status || 500,
-        message: error.message || "An unexpected error occurred.",
+        message: error.message || 'An unexpected error occurred.',
       };
     }
 

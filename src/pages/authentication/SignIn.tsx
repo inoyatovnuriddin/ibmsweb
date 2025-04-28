@@ -14,13 +14,13 @@ import {
 import {
   FacebookFilled,
   GoogleOutlined,
-  TwitterOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Logo } from '../../components';
 import { useMediaQuery } from 'react-responsive';
-import { PATH_AUTH, PATH_DASHBOARD } from '../../constants';
-import { useNavigate } from 'react-router-dom';
+import { PATH_AUTH } from '../../constants';
 import { useState } from 'react';
+import axios from 'axios';
 
 const { Title, Text, Link } = Typography;
 
@@ -35,7 +35,7 @@ export const SignInPage = () => {
     token: { colorPrimary },
   } = theme.useToken();
   const isMobile = useMediaQuery({ maxWidth: 769 });
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   const onFinish = (values: any) => {
@@ -44,17 +44,32 @@ export const SignInPage = () => {
 
     message.open({
       type: 'success',
-      content: 'Login successful',
+      content: 'Kirish muvaffaqiyatli amalga oshirildi!',
     });
+    delete values.remember;
 
-    setTimeout(() => {
-      navigate(PATH_DASHBOARD.default);
-    }, 5000);
+    axios
+      .post('http://localhost:8080/api/authenticate', values)
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((error) => {
+        console.error('Authentication failed:', error);
+        message.open({
+          type: 'error',
+          content: 'Xatolik yuz berdi, qayta urinib ko‘ring!',
+        });
+      });
   };
 
   const onFinishFailed = (errorInfo: any) => {
     console.log('Failed:', errorInfo);
   };
+
+  function googleLogin() {
+    console.log('logging in with google');
+    window.location.href = 'http://localhost:8080/api/oauth2/authorize/google';
+  }
 
   return (
     <Row style={{ minHeight: isMobile ? 'auto' : '100vh', overflow: 'hidden' }}>
@@ -66,13 +81,12 @@ export const SignInPage = () => {
           className="text-center"
           style={{ background: colorPrimary, height: '100%', padding: '1rem' }}
         >
-          <Logo color="white" />
+          <Logo href={'/'} asLink color="white" />
           <Title level={2} className="text-white">
-            Welcome back to Antd Admin
+            IBMS га хуш келибсиз!
           </Title>
           <Text className="text-white" style={{ fontSize: 18 }}>
-            A dynamic and versatile multipurpose dashboard utilizing Ant Design,
-            React, TypeScript, and Vite.
+            «INTER BIZNES MEGA SERVIS» НОДАВЛАТ ТАЪЛИМ МУАССАСАСИ
           </Text>
         </Flex>
       </Col>
@@ -84,10 +98,10 @@ export const SignInPage = () => {
           gap="middle"
           style={{ height: '100%', padding: '2rem' }}
         >
-          <Title className="m-0">Login</Title>
+          <Title className="m-0">Кириш</Title>
           <Flex gap={4}>
-            <Text>Don't have an account?</Text>
-            <Link href={PATH_AUTH.signup}>Create an account here</Link>
+            <Text>Рўйхатдан ўтмаганмисиз?</Text>
+            <Link href={PATH_AUTH.signup}>Рўйхатдан ўтиш</Link>
           </Flex>
           <Form
             name="sign-up-form"
@@ -95,8 +109,8 @@ export const SignInPage = () => {
             labelCol={{ span: 24 }}
             wrapperCol={{ span: 24 }}
             initialValues={{
-              email: 'demo@email.com',
-              password: 'demo123',
+              email: '',
+              password: '',
               remember: true,
             }}
             onFinish={onFinish}
@@ -107,10 +121,13 @@ export const SignInPage = () => {
             <Row gutter={[8, 0]}>
               <Col xs={24}>
                 <Form.Item<FieldType>
-                  label="Email"
+                  label="Электрон почта"
                   name="email"
                   rules={[
-                    { required: true, message: 'Please input your email' },
+                    {
+                      required: true,
+                      message: 'Электрон почтангизни киритинг!',
+                    },
                   ]}
                 >
                   <Input />
@@ -118,18 +135,16 @@ export const SignInPage = () => {
               </Col>
               <Col xs={24}>
                 <Form.Item<FieldType>
-                  label="Password"
+                  label="Парол"
                   name="password"
-                  rules={[
-                    { required: true, message: 'Please input your password!' },
-                  ]}
+                  rules={[{ required: true, message: 'Паролни киритинг!' }]}
                 >
                   <Input.Password />
                 </Form.Item>
               </Col>
               <Col xs={24}>
                 <Form.Item<FieldType> name="remember" valuePropName="checked">
-                  <Checkbox>Remember me</Checkbox>
+                  <Checkbox>Мени эслаб қолиш</Checkbox>
                 </Form.Item>
               </Col>
             </Row>
@@ -141,22 +156,44 @@ export const SignInPage = () => {
                   size="middle"
                   loading={loading}
                 >
-                  Continue
+                  Давом этиш
                 </Button>
-                <Link href={PATH_AUTH.passwordReset}>Forgot password?</Link>
+                <Link href={PATH_AUTH.passwordReset}>
+                  Паролни унутдингизми?
+                </Link>
               </Flex>
             </Form.Item>
           </Form>
-          <Divider className="m-0">or</Divider>
+          <Divider className="m-0">ёки</Divider>
           <Flex
             vertical={isMobile}
             gap="small"
             wrap="wrap"
             style={{ width: '100%' }}
           >
-            <Button icon={<GoogleOutlined />}>Sign in with Google</Button>
-            <Button icon={<FacebookFilled />}>Sign in with Facebook</Button>
-            <Button icon={<TwitterOutlined />}>Sign in with Twitter</Button>
+            <Button icon={<GoogleOutlined />} onClick={() => googleLogin()}>
+              Google билан кириш
+            </Button>
+            <Button
+              icon={<FacebookFilled />}
+              onClick={() =>
+                message.info(
+                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
+                )
+              }
+            >
+              Facebook билан кириш
+            </Button>
+            <Button
+              icon={<UserOutlined />}
+              onClick={() =>
+                message.info(
+                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
+                )
+              }
+            >
+              One ID билан кириш
+            </Button>
           </Flex>
         </Flex>
       </Col>

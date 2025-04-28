@@ -38,6 +38,7 @@ import type { Faq } from './faq';
 import type { Pricing } from './pricing';
 import type { Session } from './session';
 import type { ActivityTimeline } from './timeline';
+import type {JError} from './response.ts';
 
 export type {
   Projects,
@@ -72,4 +73,5 @@ export type {
   Pricing,
   Session,
   ActivityTimeline,
+  JError
 };

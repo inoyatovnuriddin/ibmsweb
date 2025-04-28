@@ -28,6 +28,10 @@ import {
 } from './routes.ts';
 
 const DASHBOARD_ITEMS = [
+  { title: 'Фойдаланувчилар', path: PATH_DASHBOARD.users },
+  { title: 'Курслар', path: PATH_DASHBOARD.courses },
+  { title: 'Мавзулар', path: PATH_DASHBOARD.topics },
+  { title: 'Видеолар', path: PATH_DASHBOARD.topics },
   { title: 'default', path: PATH_DASHBOARD.default },
   { title: 'projects', path: PATH_DASHBOARD.projects },
   { title: 'ecommerce', path: PATH_DASHBOARD.ecommerce },
@@ -48,14 +52,14 @@ const CORPORATE_ITEMS = [
 ];
 
 const USER_PROFILE_ITEMS = [
-  { title: 'details', path: PATH_USER_PROFILE.details },
-  { title: 'preferences', path: PATH_USER_PROFILE.preferences },
-  { title: 'information', path: PATH_USER_PROFILE.personalInformation },
-  { title: 'security', path: PATH_USER_PROFILE.security },
-  { title: 'activity', path: PATH_USER_PROFILE.activity },
-  { title: 'actions', path: PATH_USER_PROFILE.action },
-  { title: 'help', path: PATH_USER_PROFILE.help },
-  { title: 'feedback', path: PATH_USER_PROFILE.feedback },
+  {label:'деталлар', title: 'details', path: PATH_USER_PROFILE.details },
+  {label:'афзалликлар', title: 'preferences', path: PATH_USER_PROFILE.preferences },
+  {label:'маълумот', title: 'information', path: PATH_USER_PROFILE.personalInformation },
+  {label:'хавфсизлик', title: 'security', path: PATH_USER_PROFILE.security },
+  {label:'фаолият', title: 'activity', path: PATH_USER_PROFILE.activity },
+  {label:'ҳаракатлар', title: 'actions', path: PATH_USER_PROFILE.action },
+  {label:'ёрдам', title: 'help', path: PATH_USER_PROFILE.help },
+  {label:'фикр-мулоҳаза', title: 'feedback', path: PATH_USER_PROFILE.feedback },
 ];
 
 const AUTHENTICATION_ITEMS = [
@@ -74,6 +78,8 @@ const ERROR_ITEMS = [
   { title: '500', path: PATH_ERROR.error500 },
   { title: '503', path: PATH_ERROR.error503 },
 ];
+
+const API_URL = 'http://localhost:8080/api/v1';
 
 export {
   PATH_CALENDAR,
@@ -107,4 +113,5 @@ export {
   AUTHENTICATION_ITEMS,
   ERROR_ITEMS,
   PATH_ABOUT,
+  API_URL
 };
