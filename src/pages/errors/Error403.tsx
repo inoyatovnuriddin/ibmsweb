@@ -6,7 +6,7 @@ export const Error403Page = () => {
     <Result
       status="403"
       title="403"
-      subTitle="Sorry, you are not authorized to access this page."
+      subTitle="Сизда бу саҳифага кириш ҳуқуқи йўқ. Илтимос, админ билан боғланинг."
       extra={<BackBtn type="primary" />}
     />
   );

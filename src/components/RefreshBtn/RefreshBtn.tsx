@@ -12,7 +12,7 @@ export const RefreshBtn = ({ icon, ...others }: Props) => {
       onClick={() => window.location.reload()}
       {...others}
     >
-      Refresh page
+      Sahifani yangilash
     </Button>
   );
 };

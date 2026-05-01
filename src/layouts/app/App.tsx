@@ -1,114 +1,134 @@
 import {
+  Avatar,
   Button,
+  Drawer,
   Dropdown,
-  Flex,
   FloatButton,
+  Grid,
   Input,
   Layout,
   MenuProps,
   message,
-  theme,
-  Tooltip,
+  Space,
   Switch,
+  Tag,
+  Typography,
 } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AppstoreOutlined,
+  BellOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  MessageOutlined,
-  QuestionOutlined,
-  SettingOutlined,
-  UserOutlined,
   MoonOutlined,
+  SearchOutlined,
+  SettingOutlined,
   SunOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   CSSTransition,
   SwitchTransition,
   TransitionGroup,
 } from 'react-transition-group';
-import { useMediaQuery } from 'react-responsive';
-import SideNav from './SideNav.tsx';
-import HeaderNav from './HeaderNav.tsx';
+import { useDispatch, useSelector } from 'react-redux';
+import SideNav, { AdminSideNavContent } from './SideNav.tsx';
 import FooterNav from './FooterNav.tsx';
 import { NProgress } from '../../components';
 import { PATH_LANDING } from '../../constants';
-import { useSelector, useDispatch } from 'react-redux';
 import { toggleTheme } from '../../redux/theme/themeSlice.ts';
 import { RootState } from '../../redux/store.ts';
-const { Content } = Layout;
+
+const { Content, Header } = Layout;
+const { Text, Title } = Typography;
+const { useBreakpoint } = Grid;
 
 type AppLayoutProps = {
   children: ReactNode;
 };
 
+const resolveSectionLabel = (pathname: string) => {
+  if (pathname.includes('/dashboards/courses')) return 'Kurslar';
+  if (pathname.includes('/dashboards/topics')) return 'Mavzular';
+  if (pathname.includes('/dashboards/videos')) return 'Videolar';
+  if (pathname.includes('/dashboards/tests')) return 'Testlar';
+  if (pathname.includes('/dashboards/users')) return 'Foydalanuvchilar';
+  if (pathname.includes('/groups')) return 'Guruhlar';
+  if (pathname.includes('/dashboards/qrCode')) return 'QR-kod';
+  return 'Admin panel';
+};
+
 export const AppLayout = ({ children }: AppLayoutProps) => {
-  const {
-    token: { borderRadius },
-  } = theme.useToken();
-  const isMobile = useMediaQuery({ maxWidth: 769 });
-  const [collapsed, setCollapsed] = useState(true);
-  const [navFill, setNavFill] = useState(false);
+  const screens = useBreakpoint();
+  const isDesktop = !!screens.lg;
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const nodeRef = useRef(null);
-  const floatBtnRef = useRef(null);
   const dispatch = useDispatch();
   const { mytheme } = useSelector((state: RootState) => state.theme);
+  const asideWidth = isDesktop ? (collapsed ? 92 : 248) : 0;
+  const currentSection = useMemo(
+    () => resolveSectionLabel(location.pathname),
+    [location.pathname]
+  );
+
   const items: MenuProps['items'] = [
     {
       key: 'user-profile-link',
-      label: 'profile',
+      label: 'Profil',
       icon: <UserOutlined />,
+      onClick: () => navigate('/user-profile/details'),
     },
     {
       key: 'user-settings-link',
-      label: 'settings',
+      label: 'Sozlamalar',
       icon: <SettingOutlined />,
-    },
-    {
-      key: 'user-help-link',
-      label: 'help center',
-      icon: <QuestionOutlined />,
+      onClick: () => navigate('/user-profile/security'),
     },
     {
       type: 'divider',
     },
     {
       key: 'user-logout-link',
-      label: 'logout',
+      label: 'Chiqish',
       icon: <LogoutOutlined />,
       danger: true,
       onClick: () => {
         message.open({
           type: 'loading',
-          content: 'signing you out',
+          content: 'Hisobdan chiqilmoqda',
         });
-
+        localStorage.clear();
         setTimeout(() => {
           navigate(PATH_LANDING.root);
-        }, 1000);
+        }, 700);
       },
     },
   ];
 
   useEffect(() => {
-    setCollapsed(isMobile);
-  }, [isMobile]);
+    const syncCollapsed = () => {
+      if (window.innerWidth >= 1280) {
+        setCollapsed(false);
+      } else if (window.innerWidth >= 992) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(false);
+      }
+    };
+
+    syncCollapsed();
+    window.addEventListener('resize', syncCollapsed);
+    return () => window.removeEventListener('resize', syncCollapsed);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 5) {
-        setNavFill(true);
-      } else {
-        setNavFill(false);
-      }
-    });
-  }, []);
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   return (
     <>
@@ -116,109 +136,197 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       <Layout
         style={{
           minHeight: '100vh',
-          // backgroundColor: 'white',
+          background:
+            'radial-gradient(circle at top left, rgba(59,130,246,0.06), transparent 18%), linear-gradient(180deg, #fffdf8 0%, #f8fafc 100%)',
         }}
       >
-        <SideNav
-          trigger={null}
-          collapsible
-          collapsed={collapsed}
-          onCollapse={(value) => setCollapsed(value)}
-          style={{
-            overflow: 'auto',
-            position: 'fixed',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            background: 'none',
-            border: 'none',
-            transition: 'all .2s',
-          }}
-        />
-        <Layout
-          style={
-            {
-              // background: 'none',
-            }
-          }
-        >
-          <HeaderNav
+        {isDesktop ? (
+          <SideNav
+            trigger={null}
+            collapsible
+            collapsed={collapsed}
+            width={248}
+            collapsedWidth={92}
+            onCollapse={(value) => setCollapsed(value)}
             style={{
-              marginLeft: collapsed ? 0 : '200px',
-              padding: '0 2rem 0 0',
-              background: navFill ? 'rgba(255, 255, 255, .5)' : 'none',
-              backdropFilter: navFill ? 'blur(8px)' : 'none',
-              boxShadow: navFill ? '0 0 8px 2px rgba(0, 0, 0, 0.05)' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              overflow: 'auto',
+              position: 'fixed',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              background: 'transparent',
+              border: 'none',
+              padding: 18,
+            }}
+          />
+        ) : null}
+
+        {!isDesktop ? (
+          <Drawer
+            placement="left"
+            open={mobileNavOpen}
+            onClose={() => setMobileNavOpen(false)}
+            width={320}
+            closable={false}
+            bodyStyle={{ padding: 16, background: '#f8fafc' }}
+          >
+            <AdminSideNavContent />
+          </Drawer>
+        ) : null}
+
+        <Layout
+          style={{
+            marginLeft: asideWidth,
+            transition: 'margin-left .24s ease',
+            background: 'transparent',
+          }}
+        >
+          <Header
+            style={{
               position: 'sticky',
               top: 0,
-              zIndex: 1,
-              gap: 8,
-              transition: 'all .25s',
+              zIndex: 60,
+              background: 'transparent',
+              padding: isDesktop ? '18px 24px 0' : '16px 16px 0',
+              height: 'auto',
+              lineHeight: 'normal',
             }}
           >
-            <Flex align="center">
-              <Tooltip title={`${collapsed ? 'Expand' : 'Collapse'} Sidebar`}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 18,
+                padding: isDesktop ? '14px 18px' : '14px 14px',
+                borderRadius: 20,
+                background: 'rgba(255,255,255,0.88)',
+                border: '1px solid rgba(148,163,184,0.12)',
+                boxShadow: '0 10px 30px rgba(15,23,42,0.05)',
+                backdropFilter: 'blur(10px)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
                 <Button
                   type="text"
                   icon={
-                    collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />
+                    isDesktop
+                      ? collapsed
+                        ? <MenuUnfoldOutlined />
+                        : <MenuFoldOutlined />
+                      : <MenuUnfoldOutlined />
                   }
-                  onClick={() => setCollapsed(!collapsed)}
+                  onClick={() =>
+                    isDesktop ? setCollapsed(!collapsed) : setMobileNavOpen(true)
+                  }
                   style={{
-                    fontSize: '16px',
-                    width: 64,
-                    height: 64,
+                    fontSize: 18,
+                    width: 42,
+                    height: 42,
+                    borderRadius: 12,
+                    background: '#f8fafc',
+                    border: '1px solid rgba(148,163,184,0.14)',
+                    flexShrink: 0,
                   }}
                 />
-              </Tooltip>
-              <Input.Search
-                placeholder="search"
+                <div style={{ minWidth: 0 }}>
+                  <Text style={{ color: '#64748b', fontSize: 13 }}>
+                    Boshqaruv paneli
+                  </Text>
+                  <Title
+                    level={4}
+                    style={{
+                      margin: '2px 0 0',
+                      color: '#102a43',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {currentSection}
+                  </Title>
+                </div>
+                {isDesktop ? (
+                  <Tag
+                    style={{
+                      margin: 0,
+                      borderRadius: 999,
+                      padding: '6px 12px',
+                      background: '#eef4ff',
+                      color: '#1d4ed8',
+                      border: '1px solid rgba(29,78,216,0.12)',
+                    }}
+                  >
+                    Admin
+                  </Tag>
+                ) : null}
+              </div>
+
+              <div
                 style={{
-                  width: isMobile ? '100%' : '400px',
-                  marginLeft: isMobile ? 0 : '.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                  justifyContent: 'flex-end',
+                  width: isDesktop ? 'auto' : '100%',
                 }}
-                size="middle"
-              />
-            </Flex>
-            <Flex align="center" gap="small">
-              <Tooltip title="Apps">
-                <Button icon={<AppstoreOutlined />} type="text" size="large" />
-              </Tooltip>
-              <Tooltip title="Messages">
-                <Button icon={<MessageOutlined />} type="text" size="large" />
-              </Tooltip>
-              <Tooltip title="Theme">
+              >
+                <Input
+                  prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                  placeholder="Qidiruv"
+                  style={{
+                    width: isDesktop ? 240 : '100%',
+                    maxWidth: '100%',
+                    borderRadius: 12,
+                    flex: isDesktop ? '0 0 auto' : '1 1 100%',
+                  }}
+                />
+                <Button
+                  icon={<BellOutlined />}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    flexShrink: 0,
+                  }}
+                />
                 <Switch
-                  className=" hidden sm:inline py-1"
                   checkedChildren={<MoonOutlined />}
                   unCheckedChildren={<SunOutlined />}
                   checked={mytheme === 'light'}
                   onClick={() => dispatch(toggleTheme())}
                 />
-              </Tooltip>
-              <Dropdown menu={{ items }} trigger={['click']}>
-                <Flex>
-                  <img
-                    src="/me.jpg"
-                    alt="user profile photo"
-                    height={36}
-                    width={36}
-                    style={{ borderRadius, objectFit: 'cover' }}
-                  />
-                </Flex>
-              </Dropdown>
-            </Flex>
-          </HeaderNav>
+                <Dropdown menu={{ items }} trigger={['click']}>
+                  <Button
+                    type="text"
+                    style={{
+                      height: 44,
+                      padding: '0 8px',
+                      borderRadius: 999,
+                    }}
+                  >
+                    <Space size={10}>
+                      <Avatar src="/me.jpg" size={38} icon={<UserOutlined />} />
+                      <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
+                        <Text style={{ display: 'block', color: '#102a43' }}>
+                          Administrator
+                        </Text>
+                        <Text style={{ color: '#64748b', fontSize: 12 }}>
+                          Boshqaruv paneli
+                        </Text>
+                      </div>
+                    </Space>
+                  </Button>
+                </Dropdown>
+              </div>
+            </div>
+          </Header>
+
           <Content
             style={{
-              margin: `0 0 0 ${collapsed ? 0 : '200px'}`,
-              // background: '#ebedf0',
-              borderRadius: collapsed ? 0 : borderRadius,
-              transition: 'all .25s',
-              padding: '24px 32px',
+              padding: isDesktop ? '22px 24px 28px' : '18px 16px 24px',
               minHeight: 360,
             }}
           >
@@ -227,13 +335,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 <CSSTransition
                   key={`css-transition-${location.key}`}
                   nodeRef={nodeRef}
-                  onEnter={() => {
-                    setIsLoading(true);
-                  }}
-                  onEntered={() => {
-                    setIsLoading(false);
-                  }}
-                  timeout={300}
+                  onEnter={() => setIsLoading(true)}
+                  onEntered={() => setIsLoading(false)}
+                  timeout={260}
                   classNames="bottom-to-top"
                   unmountOnExit
                 >
@@ -245,15 +349,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 </CSSTransition>
               </SwitchTransition>
             </TransitionGroup>
-            <div ref={floatBtnRef}>
-              <FloatButton.BackTop />
-            </div>
+            <FloatButton.BackTop />
           </Content>
+
           <FooterNav
             style={{
-              textAlign: 'center',
-              marginLeft: collapsed ? 0 : '200px',
-              background: 'none',
+              marginLeft: 0,
+              background: 'transparent',
+              padding: isDesktop ? '0 24px 22px' : '0 16px 18px',
             }}
           />
         </Layout>

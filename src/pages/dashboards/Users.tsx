@@ -1,143 +1,338 @@
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { PageHeader } from '../../components';
 import {
-  DeleteOutlined,
-  EditOutlined,
-  HomeOutlined,
-  PieChartOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
-import {
+  Alert,
   Badge,
   Button,
-  Col,
+  DatePicker,
   Form,
   Input,
+  message,
   Modal,
-  Radio,
-  Row,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
+  Typography,
 } from 'antd';
-import { useEffect, useState } from 'react';
-import { DASHBOARD_ITEMS } from '../../constants';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
+import dayjs, { Dayjs } from 'dayjs';
+import { apiClient } from '../../services/api.ts';
+import {
+  ADMIN_MODAL_STYLES,
+  AdminPageFrame,
+  AdminSectionCard,
+} from './adminUi.tsx';
+import { updateUser } from './usersApi.ts';
 
-const { Option } = Select;
+const { Text } = Typography;
+const DATE_FORMAT = 'YYYY-MM-DD';
+
+type UserStatus = 'Confirm' | 'Active' | 'Block';
+
+interface UserResponse {
+  id: string;
+  phoneNumber?: string | null;
+  passportId?: string | null;
+  birthDate?: string | null;
+  email: string;
+  firstname: string;
+  lastname: string;
+  middlename: string;
+  status: UserStatus;
+  roles: string[];
+}
+
+interface UserFormValues {
+  firstname: string;
+  lastname: string;
+  middlename: string;
+  phoneNumber?: string;
+  passportId?: string;
+  birthDate?: Dayjs | null;
+  roles: string[];
+  email?: string;
+  changePassword?: boolean;
+  password?: string;
+  confirmPassword?: string;
+  status?: UserStatus;
+}
+
+interface ListPayload<T> {
+  list: T[];
+  count: number;
+}
+
+interface ApiWrapper<T> {
+  payload?: T;
+  errors?: {
+    message?: string;
+  };
+  message?: string;
+}
+
+const roleOptions = [
+  { value: 'ROLE_ADMIN', label: 'Admin' },
+  { value: 'ROLE_INSTRUCTOR', label: 'O‘qituvchi' },
+  { value: 'ROLE_USER', label: 'Foydalanuvchi' },
+];
+
+const statusOptions = [
+  { value: 'Active', label: 'Faol' },
+  { value: 'Block', label: 'Bloklangan' },
+  { value: 'Confirm', label: 'Tasdiqlanmagan' },
+];
+
+const toDayjs = (value?: string | null): Dayjs | null => {
+  if (!value) return null;
+  const parsed = dayjs(value, DATE_FORMAT, true);
+  return parsed.isValid() ? parsed : null;
+};
 
 export const DashboardUsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [form] = Form.useForm();
-  const [updatePassword, setUpdatePassword] = useState(false);
-
-  const showModal = () => {
-    setIsModalOpen(true);
-    setIsEditing(false);
-    setUpdatePassword(false);
-    form.resetFields();
-  };
+  const [form] = Form.useForm<UserFormValues>();
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [pagination, setPagination] = useState<TablePaginationConfig>({
+    current: 1,
+    pageSize: 10,
+  });
 
   useEffect(() => {
-    axios.get('http://localhost:8080/api/v1/users/list').then((res) => {
-      console.log(res);
-    });
+    fetchUsers(1, pagination.pageSize || 10, '');
   }, []);
 
-  const handleCancel = () => {
-    setIsModalOpen(false);
+  const extractErrorMessage = (error: unknown): string => {
+    const anyError = error as {
+      response?: { data?: { errors?: { message?: string }; message?: string } };
+      message?: string;
+    };
+    return (
+      anyError?.response?.data?.errors?.message ||
+      anyError?.response?.data?.message ||
+      anyError?.message ||
+      'Saqlashda xatolik yuz berdi'
+    );
   };
 
-  const handleEdit = (record: any) => {
-    setIsModalOpen(true);
-    setIsEditing(true);
-    form.setFieldsValue(record);
-  };
+  const fetchUsers = async (page = 1, pageSize = 10, searchKey = '') => {
+    setLoading(true);
+    try {
+      const start = (page - 1) * pageSize;
+      const res = await apiClient.get<ApiWrapper<ListPayload<UserResponse>>>(
+        '/v1/users/list',
+        {
+          params: {
+            start,
+            limit: pageSize,
+            searchKey,
+          },
+        }
+      );
 
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case 'Фаол':
-        return <Badge status="success" text="Фаол" />;
-      case 'Нофаол':
-        return <Badge status="error" text="Нофаол" />;
-      case 'Тасдиқланган':
-        return <Badge status="processing" text="Тасдиқланган" />;
-      default:
-        return status;
+      const payload = res.data?.payload;
+      setUsers(payload?.list || []);
+      setCount(payload?.count || 0);
+    } catch (error) {
+      message.error(extractErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const columns = [
+  const showCreateModal = () => {
+    setIsEditing(false);
+    setEditingUserId(null);
+    form.resetFields();
+    setIsModalOpen(true);
+  };
+
+  const showEditModal = (record: UserResponse) => {
+    setIsEditing(true);
+    setEditingUserId(record.id);
+    form.setFieldsValue({
+      firstname: record.firstname,
+      lastname: record.lastname,
+      middlename: record.middlename,
+      phoneNumber: record.phoneNumber || undefined,
+      passportId: record.passportId || undefined,
+      birthDate: toDayjs(record.birthDate),
+      roles: record.roles,
+      email: record.email,
+      status: record.status,
+      changePassword: false,
+      password: undefined,
+      confirmPassword: undefined,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    form.resetFields();
+  };
+
+  const handleTableChange = (newPagination: TablePaginationConfig) => {
+    const current = newPagination.current || 1;
+    const pageSize = newPagination.pageSize || 10;
+
+    setPagination({ current, pageSize });
+    fetchUsers(current, pageSize, search);
+  };
+
+  const onSearch = (value: string) => {
+    const nextSearch = value || '';
+    setSearch(nextSearch);
+    setPagination((prev) => ({ ...prev, current: 1 }));
+    fetchUsers(1, pagination.pageSize || 10, nextSearch);
+  };
+
+  const roleText = (role: string) => {
+    const found = roleOptions.find((item) => item.value === role);
+    return found?.label || role;
+  };
+
+  const statusBadge = (status: UserStatus) => {
+    if (status === 'Active') return <Badge status="success" text="Faol" />;
+    if (status === 'Block') return <Badge status="error" text="Bloklangan" />;
+    if (status === 'Confirm') {
+      return <Badge status="processing" text="Tasdiqlanmagan" />;
+    }
+    return status;
+  };
+
+  const submitForm = async (values: UserFormValues) => {
+    try {
+      if (isEditing) {
+        if (!editingUserId) return;
+
+        const updatePayload = {
+          firstname: values.firstname?.trim(),
+          lastname: values.lastname?.trim(),
+          middlename: values.middlename?.trim(),
+          phoneNumber: values.phoneNumber?.trim() || null,
+          passportId: values.passportId?.trim() || null,
+          birthDate: values.birthDate ? values.birthDate.format(DATE_FORMAT) : null,
+          roles: values.roles,
+          email: values.email?.trim(),
+          status: values.status,
+          changePassword: Boolean(values.changePassword),
+          password: values.changePassword ? values.password : undefined,
+        };
+
+        await updateUser(editingUserId, updatePayload);
+        message.success('Foydalanuvchi yangilandi');
+      } else {
+        const createPayload = {
+          firstname: values.firstname?.trim(),
+          lastname: values.lastname?.trim(),
+          middlename: values.middlename?.trim(),
+          phoneNumber: values.phoneNumber?.trim() || null,
+          passportId: values.passportId?.trim() || null,
+          birthDate: values.birthDate ? values.birthDate.format(DATE_FORMAT) : null,
+          roles: values.roles,
+        };
+
+        await apiClient.post('/v1/users/create', createPayload);
+        message.success('Yangi foydalanuvchi qo‘shildi');
+      }
+
+      setIsModalOpen(false);
+      form.resetFields();
+      fetchUsers(pagination.current || 1, pagination.pageSize || 10, search);
+    } catch (error) {
+      message.error(extractErrorMessage(error));
+    }
+  };
+
+  const columns: ColumnsType<UserResponse> = [
     {
-      title: 'Т/р',
-      dataIndex: 'tr',
-      key: 'tr',
+      title: '№',
+      render: (_text, _record, index) => {
+        const current = pagination.current || 1;
+        const pageSize = pagination.pageSize || 10;
+        return (current - 1) * pageSize + index + 1;
+      },
+      width: 70,
     },
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      title: 'F.I.Sh.',
+      key: 'fullname',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Text strong style={{ color: '#102a43' }}>
+            {record.firstname} {record.lastname}
+          </Text>
+          <Text style={{ color: '#64748b' }}>{record.middlename}</Text>
+        </Space>
+      ),
+      width: 240,
     },
     {
-      title: 'Исм',
-      dataIndex: 'firstname',
-      key: 'firstname',
+      title: 'Aloqa',
+      key: 'contact',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{record.phoneNumber || '-'}</Text>
+          <Text style={{ color: '#64748b' }}>{record.email || '-'}</Text>
+        </Space>
+      ),
+      width: 250,
     },
     {
-      title: 'Фамилия',
-      dataIndex: 'lastname',
-      key: 'lastname',
+      title: 'Passport',
+      dataIndex: 'passportId',
+      render: (value?: string | null) => value || '-',
+      width: 150,
     },
     {
-      title: 'Телефон рақами',
-      dataIndex: 'phonenumber',
-      key: 'phonenumber',
+      title: 'Tug‘ilgan sana',
+      dataIndex: 'birthDate',
+      render: (value?: string | null) => value || '-',
+      width: 150,
     },
     {
-      title: 'Электрон почта',
-      dataIndex: 'email',
-      key: 'email',
-    },
-    {
-      title: 'Ҳолати',
+      title: 'Holat',
       dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => statusBadge(status),
+      render: (status: UserStatus) => statusBadge(status),
+      width: 150,
     },
     {
-      title: 'Роллар',
+      title: 'Rollar',
       dataIndex: 'roles',
-      key: 'roles',
       render: (roles: string[]) => (
-        <Space>
+        <Space wrap>
           {roles.map((role, index) => (
             <Tag
               color={['blue', 'green', 'orange', 'purple'][index % 4]}
-              key={role}
+              key={`${role}-${index}`}
+              style={{ borderRadius: 999, paddingInline: 10 }}
             >
-              {role}
+              {roleText(role)}
             </Tag>
           ))}
         </Space>
       ),
     },
     {
-      title: 'Амаллар',
+      title: 'Amallar',
       key: 'actions',
-      render: (_: any, record: any) => (
+      width: 140,
+      render: (_value, record) => (
         <Space>
-          <Tooltip title="Таҳрирлаш">
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-            />
+          <Tooltip title="Tahrirlash">
+            <Button icon={<EditOutlined />} onClick={() => showEditModal(record)} />
           </Tooltip>
-          <Tooltip title="Ўчириш">
-            <Button danger icon={<DeleteOutlined />} />
+          <Tooltip title="O‘chirish keyin qo‘shiladi">
+            <Button danger icon={<DeleteOutlined />} disabled />
           </Tooltip>
         </Space>
       ),
@@ -147,144 +342,188 @@ export const DashboardUsersPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Фойдаланувчилар | Dashboard</title>
+        <title>Foydalanuvchilar | Admin panel</title>
       </Helmet>
-      <PageHeader
-        title="Фойдаланувчилар"
-        breadcrumbs={[
-          {
-            title: (
-              <>
-                <HomeOutlined />
-                <span>home</span>
-              </>
-            ),
-            path: '/',
-          },
-          {
-            title: (
-              <>
-                <PieChartOutlined />
-                <span>dashboards</span>
-              </>
-            ),
-            menu: {
-              items: DASHBOARD_ITEMS.map((d) => ({
-                key: d.title,
-                title: <Link to={d.path}>{d.title}</Link>,
-              })),
-            },
-          },
-          {
-            title: 'Фойдаланувчилар',
-          },
-        ]}
-      />
 
-      <Row justify="space-between" className="mb-4">
-        <Col span={12}>
-          <Input.Search
-            placeholder="Қидириш..."
-            allowClear
-            style={{ maxWidth: 300 }}
-          />
-        </Col>
-        <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={showModal}>
-            Фойдаланувчи қўшиш
+      <AdminPageFrame
+        eyebrow="Foydalanuvchilar moduli"
+        title="Foydalanuvchilar boshqaruvi"
+        subtitle="Administratorlar, o‘qituvchilar va o‘quvchilar ma'lumotlarini yagona standart asosida boshqaring."
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            size="large"
+            onClick={showCreateModal}
+            style={{ borderRadius: 16, height: 46 }}
+          >
+            Foydalanuvchi qo‘shish
           </Button>
-        </Col>
-      </Row>
-
-      <Table rowKey="id" columns={columns} dataSource={[]} />
-
-      <Modal
-        title={isEditing ? 'Фойдаланувчини таҳрирлаш' : 'Фойдаланувчи қўшиш'}
-        open={isModalOpen}
-        onCancel={handleCancel}
-        onOk={() => form.submit()}
-        okText="Сақлаш"
-        cancelText="Бекор қилиш"
+        }
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={(values) => console.log(values)}
+        <AdminSectionCard
+          title="Foydalanuvchilar ro‘yxati"
+          extra={
+            <Input.Search
+              placeholder="Ism, telefon yoki email bo‘yicha qidiring"
+              allowClear
+              style={{ width: 340, maxWidth: '100%' }}
+              onSearch={onSearch}
+              onChange={(e) => onSearch(e.target.value)}
+            />
+          }
         >
-          {isEditing && (
-            <Form.Item label="Паролни янгилайсизми?" name="updatePassword">
-              <Radio.Group onChange={(e) => setUpdatePassword(e.target.value)}>
-                <Radio value={true}>Ҳа</Radio>
-                <Radio value={false}>Йўқ</Radio>
-              </Radio.Group>
+          <Table<UserResponse>
+            rowKey="id"
+            columns={columns}
+            dataSource={users}
+            loading={loading}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: count,
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1180 }}
+          />
+        </AdminSectionCard>
+
+        <Modal
+          title={isEditing ? 'Foydalanuvchini tahrirlash' : 'Yangi foydalanuvchi qo‘shish'}
+          open={isModalOpen}
+          onCancel={handleCancel}
+          onOk={() => form.submit()}
+          okText="Saqlash"
+          cancelText="Bekor qilish"
+          destroyOnClose
+          centered
+          width="min(760px, calc(100vw - 24px))"
+          styles={ADMIN_MODAL_STYLES}
+        >
+          <Form<UserFormValues> form={form} layout="vertical" onFinish={submitForm}>
+            <Form.Item
+              label="Ism"
+              name="firstname"
+              rules={[{ required: true, message: 'Ism majburiy' }]}
+            >
+              <Input />
             </Form.Item>
-          )}
 
-          <Form.Item
-            label="Исм"
-            name="firstname"
-            rules={[{ required: true, message: 'Илтимос, исмни киритинг' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Фамилия"
-            name="lastname"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Телефон рақами"
-            name="phonenumber"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Электрон почта"
-            name="email"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
+            <Form.Item
+              label="Familiya"
+              name="lastname"
+              rules={[{ required: true, message: 'Familiya majburiy' }]}
+            >
+              <Input />
+            </Form.Item>
 
-          {(!isEditing || updatePassword) && (
-            <>
-              <Form.Item
-                label="Парол"
-                name="password"
-                rules={[{ required: true }]}
-              >
-                <Input.Password />
-              </Form.Item>
-              <Form.Item
-                label="Паролни тасдиқланг"
-                name="confirmpassword"
-                rules={[{ required: true }]}
-              >
-                <Input.Password />
-              </Form.Item>
-            </>
-          )}
+            <Form.Item
+              label="Sharif"
+              name="middlename"
+              rules={[{ required: true, message: 'Sharif majburiy' }]}
+            >
+              <Input />
+            </Form.Item>
 
-          <Form.Item label="Ҳолати" name="status" rules={[{ required: true }]}>
-            <Select placeholder="Ҳолатни танланг">
-              <Option value="Фаол">Фаол</Option>
-              <Option value="Нофаол">Нофаол</Option>
-              <Option value="Тасдиқланган">Тасдиқланган</Option>
-            </Select>
-          </Form.Item>
+            <Form.Item label="Telefon raqami" name="phoneNumber">
+              <Input />
+            </Form.Item>
 
-          <Form.Item label="Роллар" name="roles" rules={[{ required: true }]}>
-            <Select mode="multiple" placeholder="Ролларни танланг">
-              <Option value="Админ">Админ</Option>
-              <Option value="Ўқитувчи">Ўқитувчи</Option>
-              <Option value="Талаба">Талаба</Option>
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+            <Form.Item label="Passport seriya va raqami" name="passportId">
+              <Input />
+            </Form.Item>
+
+            <Form.Item label="Tug‘ilgan sana" name="birthDate">
+              <DatePicker style={{ width: '100%' }} format={DATE_FORMAT} />
+            </Form.Item>
+
+            {isEditing ? (
+              <>
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message="Parolni o‘zgartirish alohida boshqariladi"
+                  description="Agar parol yangilanmasa, mavjud kirish ma’lumotlari o‘zgarishsiz qoladi."
+                />
+                <Form.Item
+                  label="Email"
+                  name="email"
+                  rules={[{ required: true, message: 'Email majburiy' }]}
+                >
+                  <Input />
+                </Form.Item>
+
+                <Form.Item
+                  label="Parolni yangilash"
+                  name="changePassword"
+                  valuePropName="checked"
+                  extra="Faqat yoqilganda yangi parol backendga yuboriladi."
+                >
+                  <Switch checkedChildren="Ha" unCheckedChildren="Yo‘q" />
+                </Form.Item>
+
+                <Form.Item shouldUpdate={(prev, current) => prev.changePassword !== current.changePassword} noStyle>
+                  {({ getFieldValue }) =>
+                    getFieldValue('changePassword') ? (
+                      <>
+                        <Form.Item
+                          label="Yangi parol"
+                          name="password"
+                          rules={[{ required: true, message: 'Yangi parolni kiriting' }]}
+                        >
+                          <Input.Password />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Yangi parolni tasdiqlang"
+                          name="confirmPassword"
+                          dependencies={['password']}
+                          rules={[
+                            { required: true, message: 'Parolni tasdiqlang' },
+                            ({ getFieldValue }) => ({
+                              validator(_, value) {
+                                if (!value || getFieldValue('password') === value) {
+                                  return Promise.resolve();
+                                }
+                                return Promise.reject(
+                                  new Error('Parollar bir xil bo‘lishi kerak')
+                                );
+                              },
+                            }),
+                          ]}
+                        >
+                          <Input.Password />
+                        </Form.Item>
+                      </>
+                    ) : null
+                  }
+                </Form.Item>
+
+                <Form.Item
+                  label="Holat"
+                  name="status"
+                  rules={[{ required: true, message: 'Holat majburiy' }]}
+                >
+                  <Select options={statusOptions} placeholder="Holatni tanlang" />
+                </Form.Item>
+              </>
+            ) : null}
+
+            <Form.Item
+              label="Rollar"
+              name="roles"
+              rules={[{ required: true, message: 'Kamida bitta rol tanlang' }]}
+            >
+              <Select
+                mode="multiple"
+                options={roleOptions}
+                placeholder="Rollarni tanlang"
+              />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </AdminPageFrame>
     </div>
   );
 };

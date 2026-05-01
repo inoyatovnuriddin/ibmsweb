@@ -1,6 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Button,
-  Checkbox,
   Col,
   Divider,
   Flex,
@@ -11,23 +12,65 @@ import {
   theme,
   Typography,
 } from 'antd';
-import {
-  FacebookFilled,
-  GoogleOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
-import { Logo } from '../../components';
 import { useMediaQuery } from 'react-responsive';
-import { PATH_AUTH } from '../../constants';
-import { useState } from 'react';
-import axios from 'axios';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { Logo } from '../../components';
+import { PATH_AUTH, PATH_COURSE } from '../../constants';
+import {
+  type CurrentUser,
+  fetchCurrentUser,
+  loginWithIdentifier,
+} from '../../redux/auth/authApi.ts';
+import {
+  buildGoogleOauthUrl,
+  saveOauthIntent,
+} from '../../redux/auth/authSession.ts';
+import { setCurrentUser, setSession } from '../../redux/auth/authSlice.ts';
+import { AuthProviderButtons } from './AuthProviderButtons.tsx';
 
-const { Title, Text, Link } = Typography;
+const { Title, Text } = Typography;
 
-type FieldType = {
-  email?: string;
-  password?: string;
-  remember?: boolean;
+type SignInFormValues = {
+  identifier: string;
+  password: string;
+};
+
+const getReadableLoginError = (error: unknown) => {
+  const err = error as {
+    response?: { status?: number; data?: { message?: string; detail?: string; errors?: { message?: string } } };
+    message?: string;
+  };
+
+  const rawMessage =
+    err?.response?.data?.errors?.message ||
+    err?.response?.data?.detail ||
+    err?.response?.data?.message ||
+    err?.message ||
+    '';
+
+  if (err?.response?.status === 401) {
+    if (/password login/i.test(rawMessage) || /google orqali kiring/i.test(rawMessage)) {
+      return "Bu akkaunt uchun hozircha parol orqali kirish yoqilmagan. Google orqali kiring yoki profilingizni to‘ldiring.";
+    }
+
+    return 'Telefon/email yoki parol noto‘g‘ri';
+  }
+
+  return rawMessage || 'Kirishda xatolik yuz berdi';
+};
+
+const resolvePostLoginPath = (user: CurrentUser, fallbackPath?: string) => {
+  if (user.roles.includes('ROLE_ADMIN')) {
+    return '/dashboards/users';
+  }
+
+  return fallbackPath || PATH_COURSE.catalog;
 };
 
 export const SignInPage = () => {
@@ -35,168 +78,229 @@ export const SignInPage = () => {
     token: { colorPrimary },
   } = theme.useToken();
   const isMobile = useMediaQuery({ maxWidth: 769 });
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  const [messageApi, contextHolder] = message.useMessage();
+  const [form] = Form.useForm<SignInFormValues>();
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  const onFinish = (values: any) => {
-    console.log('Success:', values);
+  const oauthError = useMemo(() => searchParams.get('oauth2Error'), [searchParams]);
+  const redirectAfterLogin =
+    (location.state as { from?: string } | null)?.from || PATH_COURSE.catalog;
+
+  useEffect(() => {
+    if (!oauthError) return;
+    messageApi.error(decodeURIComponent(oauthError));
+  }, [messageApi, oauthError]);
+
+  const handleSubmit = async (values: SignInFormValues) => {
     setLoading(true);
 
-    message.open({
-      type: 'success',
-      content: 'Kirish muvaffaqiyatli amalga oshirildi!',
-    });
-    delete values.remember;
-
-    axios
-      .post('http://localhost:8080/api/authenticate', values)
-      .then((res) => {
-        console.log(res);
-      })
-      .catch((error) => {
-        console.error('Authentication failed:', error);
-        message.open({
-          type: 'error',
-          content: 'Xatolik yuz berdi, qayta urinib ko‘ring!',
-        });
+    try {
+      const tokenPayload = await loginWithIdentifier({
+        identifier: values.identifier.trim(),
+        password: values.password,
       });
+
+      if (!tokenPayload?.id_token) {
+        throw new Error('Token topilmadi');
+      }
+
+      dispatch(setSession(tokenPayload.id_token));
+      const currentUser = await fetchCurrentUser();
+      dispatch(setCurrentUser(currentUser));
+
+      messageApi.success('Kirish muvaffaqiyatli amalga oshirildi');
+      navigate(resolvePostLoginPath(currentUser, redirectAfterLogin), { replace: true });
+    } catch (error) {
+      form.setFieldsValue({ password: '' });
+      messageApi.error(getReadableLoginError(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onFinishFailed = (errorInfo: any) => {
-    console.log('Failed:', errorInfo);
+  const handleGoogleLogin = () => {
+    if (oauthLoading) return;
+    setOauthLoading(true);
+    saveOauthIntent('signin');
+    window.location.href = buildGoogleOauthUrl();
   };
-
-  function googleLogin() {
-    console.log('logging in with google');
-    window.location.href = 'http://localhost:8080/api/oauth2/authorize/google';
-  }
 
   return (
-    <Row style={{ minHeight: isMobile ? 'auto' : '100vh', overflow: 'hidden' }}>
-      <Col xs={24} lg={12}>
-        <Flex
-          vertical
-          align="center"
-          justify="center"
-          className="text-center"
-          style={{ background: colorPrimary, height: '100%', padding: '1rem' }}
-        >
-          <Logo href={'/'} asLink color="white" />
-          <Title level={2} className="text-white">
-            IBMS га хуш келибсиз!
-          </Title>
-          <Text className="text-white" style={{ fontSize: 18 }}>
-            «INTER BIZNES MEGA SERVIS» НОДАВЛАТ ТАЪЛИМ МУАССАСАСИ
-          </Text>
-        </Flex>
-      </Col>
-      <Col xs={24} lg={12}>
-        <Flex
-          vertical
-          align={isMobile ? 'center' : 'flex-start'}
-          justify="center"
-          gap="middle"
-          style={{ height: '100%', padding: '2rem' }}
-        >
-          <Title className="m-0">Кириш</Title>
-          <Flex gap={4}>
-            <Text>Рўйхатдан ўтмаганмисиз?</Text>
-            <Link href={PATH_AUTH.signup}>Рўйхатдан ўтиш</Link>
-          </Flex>
-          <Form
-            name="sign-up-form"
-            layout="vertical"
-            labelCol={{ span: 24 }}
-            wrapperCol={{ span: 24 }}
-            initialValues={{
-              email: '',
-              password: '',
-              remember: true,
-            }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="off"
-            requiredMark={false}
-          >
-            <Row gutter={[8, 0]}>
-              <Col xs={24}>
-                <Form.Item<FieldType>
-                  label="Электрон почта"
-                  name="email"
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)',
+        padding: isMobile ? '20px 12px' : '32px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {contextHolder}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 1140,
+          background: '#ffffff',
+          borderRadius: 30,
+          overflow: 'hidden',
+          border: '1px solid rgba(148,163,184,0.14)',
+          boxShadow: '0 28px 80px rgba(15,23,42,0.08)',
+        }}
+      >
+        <Row gutter={0}>
+          <Col xs={24} lg={10}>
+            <Flex
+              vertical
+              align="center"
+              justify="center"
+              className="text-center"
+              style={{
+                background: `linear-gradient(160deg, ${colorPrimary} 0%, #1d4ed8 100%)`,
+                height: '100%',
+                minHeight: isMobile ? 220 : 700,
+                padding: isMobile ? '28px 22px' : '48px 36px',
+              }}
+            >
+              <Logo href="/" asLink color="white" />
+              <Title
+                level={isMobile ? 2 : 1}
+                className="text-white"
+                style={{ marginBottom: 12, letterSpacing: '-0.02em' }}
+              >
+                Tizimga kirish
+              </Title>
+              <Text
+                className="text-white"
+                style={{ fontSize: isMobile ? 16 : 18, maxWidth: 360, lineHeight: 1.6 }}
+              >
+                Kurslar va shaxsiy kabinetga qulay tarzda kiring.
+              </Text>
+            </Flex>
+          </Col>
+
+          <Col xs={24} lg={14}>
+            <Flex
+              vertical
+              gap={20}
+              style={{
+                padding: isMobile ? '28px 20px 24px' : '48px 40px',
+              }}
+            >
+              {oauthError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  style={{ width: '100%' }}
+                  message="Google akkaunt orqali kirishda xatolik yuz berdi"
+                  description={decodeURIComponent(oauthError)}
+                />
+              ) : null}
+
+              <div>
+                <Title
+                  style={{
+                    margin: 0,
+                    fontSize: isMobile ? 28 : 34,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Kirish
+                </Title>
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  gap={12}
+                  wrap="wrap"
+                  style={{
+                    marginTop: 14,
+                    padding: '12px 16px',
+                    borderRadius: 18,
+                    border: '1px solid rgba(191, 219, 254, 0.9)',
+                    background: '#f8fbff',
+                  }}
+                >
+                  <Text style={{ color: '#52606d', fontSize: 15 }}>Akkauntingiz yo‘qmi?</Text>
+                  <Link
+                    to={PATH_AUTH.signup}
+                    style={{
+                      color: '#2563eb',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      padding: '8px 14px',
+                      borderRadius: 999,
+                      background: '#ffffff',
+                      boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
+                    }}
+                  >
+                    Ro‘yxatdan o‘tish
+                  </Link>
+                </Flex>
+              </div>
+
+              <AuthProviderButtons
+                googleLabel="Google orqali kirish"
+                googleLoading={oauthLoading}
+                onGoogleClick={handleGoogleLogin}
+              />
+
+              <Divider className="m-0">yoki</Divider>
+
+              <Form<SignInFormValues>
+                form={form}
+                layout="vertical"
+                onFinish={handleSubmit}
+                autoComplete="off"
+                requiredMark={false}
+                initialValues={{ identifier: '', password: '' }}
+                style={{ width: '100%' }}
+              >
+                <Form.Item
+                  label="Telefon raqam yoki email"
+                  name="identifier"
                   rules={[
-                    {
-                      required: true,
-                      message: 'Электрон почтангизни киритинг!',
-                    },
+                    { required: true, message: 'Telefon raqam yoki email kiriting' },
                   ]}
                 >
-                  <Input />
+                  <Input
+                    size="large"
+                    placeholder="Telefon raqam yoki email kiriting"
+                    autoComplete="username"
+                  />
                 </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item<FieldType>
-                  label="Парол"
+
+                <Form.Item
+                  label="Parol"
                   name="password"
-                  rules={[{ required: true, message: 'Паролни киритинг!' }]}
+                  rules={[{ required: true, message: 'Parolni kiriting' }]}
                 >
-                  <Input.Password />
+                  <Input.Password size="large" autoComplete="current-password" />
                 </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item<FieldType> name="remember" valuePropName="checked">
-                  <Checkbox>Мени эслаб қолиш</Checkbox>
+
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Flex align="center" justify="space-between" gap={12} wrap="wrap">
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      size="large"
+                      loading={loading}
+                      style={{ minWidth: isMobile ? '100%' : 172 }}
+                    >
+                      Tizimga kirish
+                    </Button>
+                    <Link to={PATH_AUTH.passwordReset}>Parolni unutdingizmi?</Link>
+                  </Flex>
                 </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item>
-              <Flex align="center" justify="space-between">
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  size="middle"
-                  loading={loading}
-                >
-                  Давом этиш
-                </Button>
-                <Link href={PATH_AUTH.passwordReset}>
-                  Паролни унутдингизми?
-                </Link>
-              </Flex>
-            </Form.Item>
-          </Form>
-          <Divider className="m-0">ёки</Divider>
-          <Flex
-            vertical={isMobile}
-            gap="small"
-            wrap="wrap"
-            style={{ width: '100%' }}
-          >
-            <Button icon={<GoogleOutlined />} onClick={() => googleLogin()}>
-              Google билан кириш
-            </Button>
-            <Button
-              icon={<FacebookFilled />}
-              onClick={() =>
-                message.info(
-                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
-                )
-              }
-            >
-              Facebook билан кириш
-            </Button>
-            <Button
-              icon={<UserOutlined />}
-              onClick={() =>
-                message.info(
-                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
-                )
-              }
-            >
-              One ID билан кириш
-            </Button>
-          </Flex>
-        </Flex>
-      </Col>
-    </Row>
+              </Form>
+            </Flex>
+          </Col>
+        </Row>
+      </div>
+    </div>
   );
 };

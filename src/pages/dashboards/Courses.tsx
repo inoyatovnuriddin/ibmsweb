@@ -1,3 +1,4 @@
+import type { TablePaginationConfig } from 'antd';
 import {
   Button,
   Form,
@@ -5,44 +6,39 @@ import {
   message,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Table,
+  Tag,
+  Tooltip,
+  Typography,
 } from 'antd';
 import { useEffect, useState } from 'react';
 import {
   DeleteOutlined,
   EditOutlined,
-  HomeOutlined,
-  PieChartOutlined,
   PlusOutlined,
+  ReadOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { v4 as uuidv4 } from 'uuid';
-import { DASHBOARD_ITEMS } from '../../constants';
-import { Link, useNavigate } from 'react-router-dom';
-import { PageHeader } from '../../components';
 import { Helmet } from 'react-helmet-async';
-import requestAPI from '../../services/api.ts';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../../services/api.ts';
+import {
+  ADMIN_MODAL_STYLES,
+  AdminPageFrame,
+  AdminSectionCard,
+} from './adminUi.tsx';
+
+const { Text } = Typography;
 
 type Course = {
   id: string;
-  title: string;
-  description: string;
+  titleuz: string;
+  titleru: string;
+  descriptionuz: string;
+  descriptionru: string;
   instructor: string;
-  ppvCode: string;
 };
-
-const generateCode = () => {
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from({ length: 8 }, () =>
-    chars.charAt(Math.floor(Math.random() * chars.length))
-  ).join('');
-};
-
-const instructors = ['Abdulla Qodiriy', 'Gulsara Karimova', 'Jamshid Ismoilov'];
 
 export const DashboardCoursesPage = () => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -50,19 +46,51 @@ export const DashboardCoursesPage = () => {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
 
   useEffect(() => {
     fetchCourses();
   }, []);
 
-  const fetchCourses = () => {
-    axios.get('http://localhost:8080/api/v1/course/list').then((res) => {
-      console.log(res);
-    });
+  const fetchCourses = (page = 1, pageSize = 10, search = '') => {
+    setLoading(true);
+    const start = (page - 1) * pageSize;
 
+    apiClient
+      .get('/v1/course/list', {
+        params: {
+          start,
+          limit: pageSize,
+          searchKey: search,
+        },
+      })
+      .then((res) => {
+        const { list, count } = res?.data?.payload ?? {};
+        setCourses(list || []);
+        setPagination({
+          current: page,
+          pageSize,
+          total: count || 0,
+        });
+      })
+      .catch(() => {
+        message.error('Kurslarni yuklashda xatolik yuz berdi');
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const handleTableChange = (newPagination: TablePaginationConfig) => {
+    fetchCourses(
+      newPagination.current || 1,
+      newPagination.pageSize || pagination.pageSize,
+      searchTerm
+    );
   };
 
   const showModal = (course?: Course) => {
@@ -71,238 +99,236 @@ export const DashboardCoursesPage = () => {
       form.setFieldsValue(course);
     } else {
       form.resetFields();
-      
+      setEditingCourse(null);
     }
     setModalVisible(true);
   };
 
-  const handleModalOk = () => {
-    form
-      .validateFields()
-      .then((values) => {
-        if (editingCourse) {
-          // Update the course
-          requestAPI
-            .put('/course/update', values)
-            .then((response) => {
-              console.log(response);
-              setCourses((prev) =>
-                prev.map((c) =>
-                  c.id === editingCourse.id
-                    ? { ...editingCourse, ...values }
-                    : c
-                )
-              );
-              message.success('Курс муваффақиятли янгиланди');
-            })
-            .catch((error) => {
-              message.error('Курсни янгилашда хато');
-              console.error(error);
-            });
-        } else {
-          // Create a new course
-          const newCourse = {
-            ...values,
-            id: uuidv4(),
-            ppvCode: generateCode(),
-          };
-          
-        }
-        setModalVisible(false);
-        setEditingCourse(null);
-      })
-      .catch(() => {});
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
+      const data = {
+        ...values,
+        id: editingCourse ? editingCourse.id : null,
+      };
+
+      const request = editingCourse
+        ? apiClient.put(`/v1/course/update`, data)
+        : apiClient.post('/v1/course/create', data);
+
+      await request;
+      message.success(
+        editingCourse ? 'Kurs yangilandi' : 'Yangi kurs qo‘shildi'
+      );
+      setModalVisible(false);
+      setEditingCourse(null);
+      fetchCourses(pagination.current, pagination.pageSize, searchTerm);
+    } catch {
+      message.error('Saqlashda xatolik yuz berdi');
+    }
   };
 
   const handleDelete = (id: string) => {
-    // requestAPI('DELETE', `/course/delete?id=${id}`)
-    //   .then(() => {
-    //     setCourses((prev) => prev.filter((c) => c.id !== id));
-    //     message.success('Курс ўчирилди');
-    //   })
-    //   .catch((error) => {
-    //     message.error('Курсни ўчиришда хато');
-    //     console.error(error);
-    //   });
+    if (
+      window.confirm(
+        'Kurs o‘chirilsa, unga tegishli mavzular va videolar ham o‘chishi mumkin. Davom etilsinmi?'
+      )
+    ) {
+      apiClient
+        .delete(`/v1/course/delete`, { params: { id } })
+        .then(() => {
+          message.success('Kurs o‘chirildi');
+          fetchCourses(pagination.current, pagination.pageSize, searchTerm);
+        })
+        .catch(() => {
+          message.error('O‘chirishda xatolik yuz berdi');
+        });
+    }
   };
 
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const searchCourses = (value: string) => {
+    setSearchTerm(value);
+    fetchCourses(1, pagination.pageSize, value);
+  };
 
   const columns: ColumnsType<Course> = [
     {
       title: '№',
-      render: (_text, _record, index) => index + 1,
-      width: 60,
+      render: (_text, _record, index) =>
+        (pagination.current - 1) * pagination.pageSize + index + 1,
+      width: 70,
       fixed: 'left',
     },
     {
-      title: 'Номи',
-      dataIndex: 'title',
-      key: 'title',
-    },
-    {
-      title: 'Тавсифи',
-      dataIndex: 'description',
-      key: 'description',
-    },
-    {
-      title: 'Инструктор',
-      dataIndex: 'instructor',
-      key: 'instructor',
-    },
-    {
-      title: 'PPV КОДИ',
-      dataIndex: 'ppvCode',
-      key: 'ppvCode',
-    },
-    {
-      title: 'Амаллар',
-      key: 'actions',
+      title: 'Kurs',
+      key: 'course',
       render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => showModal(record)}
-          />
-          <Popconfirm
-            title="Ҳақиқатан ҳам ўчирмоқчимисиз?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Ҳа"
-            cancelText="Йўқ"
-          >
-            <Button danger size="small" icon={<DeleteOutlined />} />
-          </Popconfirm>
-          <Button
-            size="small"
-            icon={<PieChartOutlined />}
-            onClick={() => navigate(`/dashboards/topics?courseId=${record.id}`)}
-          >
-            Мавзулар
-          </Button>
+        <Space direction="vertical" size={2}>
+          <Text strong>{record.titleru}</Text>
+          <Text style={{ color: '#64748b' }}>{record.titleuz}</Text>
         </Space>
       ),
+      width: 260,
+    },
+    {
+      title: 'Tavsif',
+      key: 'description',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{record.descriptionru}</Text>
+          <Text style={{ color: '#64748b' }}>{record.descriptionuz}</Text>
+        </Space>
+      ),
+      width: 420,
+    },
+    {
+      title: 'Instruktor',
+      dataIndex: 'instructor',
+      key: 'instructor',
+      render: (value) => (
+        <Tag
+          style={{
+            margin: 0,
+            borderRadius: 999,
+            padding: '6px 12px',
+            background: '#eff6ff',
+            color: '#1d4ed8',
+            border: '1px solid rgba(29,78,216,0.12)',
+          }}
+        >
+          {value}
+        </Tag>
+      ),
+      width: 180,
+    },
+    {
+      title: 'Amallar',
+      key: 'actions',
       fixed: 'right',
-      width: 150,
+      width: 220,
+      render: (_, record) => (
+        <Space wrap>
+          <Tooltip title="Tahrirlash">
+            <Button icon={<EditOutlined />} onClick={() => showModal(record)} />
+          </Tooltip>
+          <Tooltip title="Mavzular">
+            <Button
+              icon={<ReadOutlined />}
+              onClick={() => navigate(`/dashboards/topics?courseId=${record.id}`)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="Kurs o‘chirilsinmi?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Ha"
+            cancelText="Yo‘q"
+          >
+            <Button danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
   return (
-    <div className="p-4 w-100">
+    <div>
       <Helmet>
-        <title>Курслар | Dashboard</title>
+        <title>Kurslar | Admin panel</title>
       </Helmet>
-      <PageHeader
-        title="Курслар"
-        breadcrumbs={[
-          {
-            title: (
-              <>
-                <HomeOutlined />
-                <span>home</span>
-              </>
-            ),
-            path: '/',
-          },
-          {
-            title: (
-              <>
-                <PieChartOutlined />
-                <span>dashboards</span>
-              </>
-            ),
-            menu: {
-              items: DASHBOARD_ITEMS.map((d) => ({
-                key: d.title,
-                title: <Link to={d.path}>{d.title}</Link>,
-              })),
-            },
-          },
-          {
-            title: 'Курслар',
-          },
-        ]}
-      />
 
-      <div className="w-100 flex justify-between items-center mb-4 gap-2 flex-wrap">
-        <Input.Search
-          placeholder="Курс номи ёки тавсифи бўйича қидиринг..."
-          allowClear
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ maxWidth: 400 }}
-        />
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => showModal()}
-          style={{
-            float: 'right',
-          }}
-        >
-          Янги курс
-        </Button>
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <Table
-          dataSource={filteredCourses}
-          columns={columns}
-          rowKey="id"
-          scroll={{ x: 'max-content' }}
-          pagination={{ pageSize: 5 }}
-        />
-      </div>
-
-      <Modal
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingCourse(null);
-        }}
-        onOk={handleModalOk}
-        title={editingCourse ? 'Курсни таҳрирлаш' : 'Янги курс қўшиш'}
-        okText={editingCourse ? 'Сақлаш' : 'Қўшиш'}
-        cancelText="Бекор қилиш"
+      <AdminPageFrame
+        eyebrow="Kurslar moduli"
+        title="Kurslar boshqaruvi"
+        subtitle="Kurslar nomi, tavsifi va instruktor ma'lumotlarini shu bo‘limdan boshqaring."
+        actions={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            size="large"
+            onClick={() => showModal()}
+            style={{ borderRadius: 16, height: 46 }}
+          >
+            Yangi kurs
+          </Button>
+        }
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            label="Курс номи"
-            name="title"
-            rules={[
-              { required: true, message: 'Илтимос, курс номини киритинг' },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            label="Тавсифи"
-            name="description"
-            rules={[{ required: true, message: 'Илтимос, тавсифни киритинг' }]}
-          >
-            <Input.TextArea rows={3} />
-          </Form.Item>
-          <Form.Item
-            label="Инструктор"
-            name="instructor"
-            rules={[{ required: true, message: 'Инструкторни танланг' }]}
-          >
-            <Select
-              showSearch
-              placeholder="Инструкторни танланг"
-              options={instructors.map((i) => ({ label: i, value: i }))}
-              filterOption={(input, option) =>
-                (option?.label ?? '')
-                  .toLowerCase()
-                  .includes(input.toLowerCase())
-              }
+        <AdminSectionCard
+          title="Kurslar ro‘yxati"
+          extra={
+            <Input.Search
+              placeholder="Kurs nomi yoki tavsifi bo‘yicha qidiring"
+              allowClear
+              onSearch={searchCourses}
+              onChange={(e) => searchCourses(e.target.value)}
+              style={{ width: 340, maxWidth: '100%' }}
             />
-          </Form.Item>
-        </Form>
-      </Modal>
+          }
+        >
+          <Table
+            dataSource={courses}
+            columns={columns}
+            rowKey="id"
+            scroll={{ x: 1100 }}
+            pagination={pagination}
+            loading={loading}
+            onChange={handleTableChange}
+          />
+        </AdminSectionCard>
+
+        <Modal
+          open={modalVisible}
+          centered
+          width="min(780px, calc(100vw - 24px))"
+          onCancel={() => {
+            setModalVisible(false);
+            setEditingCourse(null);
+          }}
+          onOk={handleModalOk}
+          title={editingCourse ? 'Kursni tahrirlash' : 'Yangi kurs qo‘shish'}
+          okText={editingCourse ? 'Saqlash' : 'Qo‘shish'}
+          cancelText="Bekor qilish"
+          destroyOnClose
+          styles={ADMIN_MODAL_STYLES}
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              label="Kurs nomi rus tilida"
+              name="titleru"
+              rules={[{ required: true, message: 'Kurs nomini kiriting' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              label="Kurs nomi o‘zbek tilida"
+              name="titleuz"
+              rules={[{ required: true, message: 'Kurs nomini kiriting' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              label="Ruscha tavsif"
+              name="descriptionru"
+              rules={[{ required: true, message: 'Tavsifni kiriting' }]}
+            >
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item
+              label="O‘zbekcha tavsif"
+              name="descriptionuz"
+              rules={[{ required: true, message: 'Tavsifni kiriting' }]}
+            >
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item
+              label="Instruktor"
+              name="instructor"
+              rules={[{ required: true, message: 'Instruktorni kiriting' }]}
+            >
+              <Input />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </AdminPageFrame>
     </div>
   );
 };

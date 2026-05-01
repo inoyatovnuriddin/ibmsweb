@@ -6,7 +6,7 @@ export const Error500Page = () => {
     <Result
       status="500"
       title="500"
-      subTitle="Sorry, something went wrong."
+      subTitle="Kechirasiz, nimadir xato ketdi."
       extra={[<BackBtn type="primary" />, <RefreshBtn />]}
     />
   );

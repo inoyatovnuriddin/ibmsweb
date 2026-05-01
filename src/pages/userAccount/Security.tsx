@@ -1,35 +1,8 @@
-import {
-  Alert,
-  Badge,
-  Button,
-  Col,
-  Collapse,
-  Descriptions,
-  Form,
-  Input,
-  Row,
-  Typography,
-} from 'antd';
+import { Button, Col, Form, Input, message, Row } from 'antd';
 import { useStylesContext } from '../../context';
-import { Card, Flex, Loader } from '../../components';
-import { Session } from '../../types';
-import {
-  LaptopOutlined,
-  MobileOutlined,
-  SaveOutlined,
-  TabletOutlined,
-} from '@ant-design/icons';
-import { useFetchData } from '../../hooks';
-
-const { Text } = Typography;
-
-const onFinish = (values: any) => {
-  console.log('Success:', values);
-};
-
-const onFinishFailed = (errorInfo: any) => {
-  console.log('Failed:', errorInfo);
-};
+import { Card } from '../../components';
+import { SaveOutlined } from '@ant-design/icons';
+import { apiClient } from '../../services/api.ts';
 
 type FieldType = {
   currentPassword?: string;
@@ -39,92 +12,117 @@ type FieldType = {
 
 export const UserProfileSecurityPage = () => {
   const stylesContext = useStylesContext();
-  const {
-    data: sessionActivityData,
-    loading: sessionActivityDataLoading,
-    error: sessionActivityDataError,
-  } = useFetchData('../mocks/SessionActivity.json');
+
+  const [form] = Form.useForm();
+
+  const onFinish = (values: FieldType) => {
+    console.log('Муваффақиятли:', values);
+
+    const data = {
+      currentPassword: values?.currentPassword?.trim(),
+      newPassword: values?.newPassword?.trim(),
+      reEnterPassword: values?.reEnterPassword?.trim(),
+    };
+
+    if (data.newPassword !== data.reEnterPassword) {
+      message.error('Янги пароллар мос эмас!');
+      return;
+    }
+
+    apiClient
+      .post('/v1/users/change_password', data)
+      .then((res) => {
+        message.success(res.data?.payload?.message);
+        form.resetFields();
+      })
+      .catch((e) => {
+        console.log(e.response);
+      });
+  };
 
   return (
     <Row {...stylesContext?.rowProps}>
+      {/*kerak bolishi mumkin, кейин қўшаман o'chirilmasin */}
+      
+      {/*<Col span={24}>*/}
+      {/*  <Row {...stylesContext?.rowProps}>*/}
+      {/*    <Col xs={24} sm={12}>*/}
+      {/*      <Card*/}
+      {/*        title="Қўшимча хавфсизлик"*/}
+      {/*        extra={<Button type="default">Батафсил</Button>}*/}
+      {/*        actions={[<Button>Ёқиш</Button>]}*/}
+      {/*        style={{ height: '100%' }}*/}
+      {/*      >*/}
+      {/*        <Flex flexDirection="column">*/}
+      {/*          <Text>Паролсиз аккаунт</Text>*/}
+      {/*          <Badge status="error" text="ЎЧИРИЛГАН" />*/}
+      {/*        </Flex>*/}
+      {/*      </Card>*/}
+      {/*    </Col>*/}
+      {/*    /!*<Col xs={24} sm={12}>*!/*/}
+      {/*    /!*  <Card*!/*/}
+      {/*    /!*    title="Қўшимча хавфсизлик"*!/*/}
+      {/*    /!*    extra={<Button type="default">Батафсил</Button>}*!/*/}
+      {/*    /!*    actions={[<Button>Ўчириш</Button>]}*!/*/}
+      {/*    /!*    style={{ height: '100%' }}*!/*/}
+      {/*    /!*  >*!/*/}
+      {/*    /!*    <Flex flexDirection="column">*!/*/}
+      {/*    /!*      <Text>Икки босқичли тасдиқлаш</Text>*!/*/}
+      {/*    /!*      <Badge status="success" text="ЁҚИЛГАН" />*!/*/}
+      {/*    /!*    </Flex>*!/*/}
+      {/*    /!*  </Card>*!/*/}
+      {/*    /!*</Col>*!/*/}
+      {/*    <Col xs={24} sm={12}>*/}
+      {/*      <Card*/}
+      {/*        title="Ҳамма жойдан чиқиш"*/}
+      {/*        actions={[<Button>Чиқиш</Button>]}*/}
+      {/*        style={{ height: '100%' }}*/}
+      {/*      >*/}
+      {/*        <Flex flexDirection="column">*/}
+      {/*          <Text>*/}
+      {/*            Браузерлар, иловалар ва аккаунтингиздан фойдаланилаётган бошқа*/}
+      {/*            жойлардан чиқариб юборамиз.*/}
+      {/*          </Text>*/}
+      {/*        </Flex>*/}
+      {/*      </Card>*/}
+      {/*    </Col>*/}
+      {/*    <Col xs={24} sm={12}>*/}
+      {/*      <Card*/}
+      {/*        title="Қайта тиклаш коди"*/}
+      {/*        actions={[<Button>Янги код яратиш</Button>]}*/}
+      {/*        style={{ height: '100%' }}*/}
+      {/*      >*/}
+      {/*        <Flex flexDirection="column">*/}
+      {/*          <Text>*/}
+      {/*            Агар аккаунтингизга кириш имкони бўлмаса, ушбу код орқали*/}
+      {/*            фойдаланишингиз мумкин. Уни чиқариб олинг ва хавфсиз жойда*/}
+      {/*            сақланг.*/}
+      {/*          </Text>*/}
+      {/*        </Flex>*/}
+      {/*      </Card>*/}
+      {/*    </Col>*/}
+      {/*  </Row>*/}
+      {/*</Col>*/}
+
       <Col span={24}>
-        <Row {...stylesContext?.rowProps}>
-          <Col xs={24} sm={12}>
-            <Card
-              title="Additional security"
-              extra={<Button type="default">Learn more</Button>}
-              actions={[<Button>Turn on</Button>]}
-              style={{ height: '100%' }}
-            >
-              <Flex flexDirection="column">
-                <Text>Passwordless account</Text>
-                <Badge status="error" text="OFF" />
-              </Flex>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Card
-              title="Additional security"
-              extra={<Button type="default">Learn more</Button>}
-              actions={[<Button>Turn off</Button>]}
-              style={{ height: '100%' }}
-            >
-              <Flex flexDirection="column">
-                <Text>Two-step verification</Text>
-                <Badge status="success" text="ON" />
-              </Flex>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Card
-              title="Sign me out"
-              actions={[<Button>Sign me out</Button>]}
-              style={{ height: '100%' }}
-            >
-              <Flex flexDirection="column">
-                <Text>
-                  We can protect you by signing you out of browsers, apps and
-                  anywhere else your account is used to sign in.
-                </Text>
-              </Flex>
-            </Card>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Card
-              title="Recovery code"
-              actions={[<Button>Generate a new code</Button>]}
-              style={{ height: '100%' }}
-            >
-              <Flex flexDirection="column">
-                <Text>
-                  You can use this code to access your account if you lose
-                  access to your sign-in info. Print this out and keep it in a
-                  safe place or take a picture of it.
-                </Text>
-              </Flex>
-            </Card>
-          </Col>
-        </Row>
-      </Col>
-      <Col span={24}>
-        <Card title="Change your password">
+        <Card title="Паролни ўзгартириш">
           <Form
+            form={form}
             name="form-change-password"
             layout="vertical"
             labelCol={{ span: 8 }}
             initialValues={{ remember: true }}
             onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
             autoComplete="off"
             requiredMark={false}
           >
             <Form.Item<FieldType>
-              label="Current password"
+              label="Жорий парол"
               name="currentPassword"
               rules={[
                 {
                   required: true,
-                  message: 'Please input your current password!',
+                  message: 'Илтимос, жорий паролингизни киритинг!',
                 },
               ]}
             >
@@ -132,22 +130,29 @@ export const UserProfileSecurityPage = () => {
             </Form.Item>
 
             <Form.Item<FieldType>
-              label="New password"
+              label="Янги парол"
               name="newPassword"
               rules={[
-                { required: true, message: 'Please input your new password!' },
+                {
+                  required: true,
+                  message: 'Илтимос, янги паролингизни киритинг!',
+                  max: 16,
+                  min: 8,
+                },
               ]}
             >
               <Input.Password />
             </Form.Item>
 
             <Form.Item<FieldType>
-              label="Reenter password"
+              label="Паролни қайта киритинг"
               name="reEnterPassword"
               rules={[
                 {
                   required: true,
-                  message: 'Please re-input your new password!!',
+                  message: 'Илтимос, янги паролни қайта киритинг!',
+                  max: 16,
+                  min: 8,
                 },
               ]}
             >
@@ -156,93 +161,94 @@ export const UserProfileSecurityPage = () => {
 
             <Form.Item>
               <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                Save changes
+                Ўзгартиришни сақлаш
               </Button>
             </Form.Item>
           </Form>
         </Card>
       </Col>
-      <Col span={24}>
-        <Card
-          title="Recent activity"
-          extra={<Button>View all activity</Button>}
-        >
-          {sessionActivityDataError ? (
-            <Alert
-              message="Error"
-              description={sessionActivityDataError.toString()}
-              type="error"
-              showIcon
-            />
-          ) : sessionActivityDataLoading ? (
-            <Loader />
-          ) : (
-            <Collapse
-              bordered
-              expandIconPosition="start"
-              items={sessionActivityData.slice(0, 5).map((s: Session) => ({
-                key: s.id,
-                label: (
-                  <Flex>
-                    <span>{s.login_time}</span>
-                  </Flex>
-                ),
-                children: (
-                  <Descriptions
-                    bordered
-                    column={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}
-                    items={[
-                      {
-                        key: 'session_device',
-                        label: 'Device',
-                        children: s.device_type,
-                      },
-                      {
-                        key: 'session_browser',
-                        label: 'Browser',
-                        children: s.browser,
-                      },
-                      {
-                        key: 'session_ip',
-                        label: 'IP address',
-                        children: s.ip_address,
-                      },
-                      {
-                        key: 'session_status',
-                        label: 'Status',
-                        children: <Badge status="processing" text={s.status} />,
-                      },
-                      {
-                        key: 'session_location',
-                        label: 'Location',
-                        children: s.login_location,
-                      },
-                      {
-                        key: 'session_duration',
-                        label: 'Session duration (mins)',
-                        children: s.login_duration,
-                      },
-                      {
-                        key: 'session_login_attempts',
-                        label: 'Login attempts',
-                        children: s.login_attempts,
-                      },
-                    ]}
-                  />
-                ),
-                extra:
-                  s.device_type === 'desktop' ? (
-                    <LaptopOutlined />
-                  ) : s.device_type === 'tablet' ? (
-                    <TabletOutlined />
-                  ) : (
-                    <MobileOutlined />
-                  ),
-              }))}
-            />
-          )}
-        </Card>
-      </Col>
+
+      {/*<Col span={24}>*/}
+      {/*  <Card*/}
+      {/*    title="Сўнгги фаоллик"*/}
+      {/*    extra={<Button>Барча фаолликни кўриш</Button>}*/}
+      {/*  >*/}
+      {/*    {sessionActivityDataError ? (*/}
+      {/*      <Alert*/}
+      {/*        message="Хатолик"*/}
+      {/*        description={sessionActivityDataError.toString()}*/}
+      {/*        type="error"*/}
+      {/*        showIcon*/}
+      {/*      />*/}
+      {/*    ) : sessionActivityDataLoading ? (*/}
+      {/*      <Loader />*/}
+      {/*    ) : (*/}
+      {/*      <Collapse*/}
+      {/*        bordered*/}
+      {/*        expandIconPosition="start"*/}
+      {/*        items={sessionActivityData.slice(0, 5).map((s: Session) => ({*/}
+      {/*          key: s.id,*/}
+      {/*          label: (*/}
+      {/*            <Flex>*/}
+      {/*              <span>{s.login_time}</span>*/}
+      {/*            </Flex>*/}
+      {/*          ),*/}
+      {/*          children: (*/}
+      {/*            <Descriptions*/}
+      {/*              bordered*/}
+      {/*              column={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}*/}
+      {/*              items={[*/}
+      {/*                {*/}
+      {/*                  key: 'session_device',*/}
+      {/*                  label: 'Ускуна',*/}
+      {/*                  children: s.device_type,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_browser',*/}
+      {/*                  label: 'Браузер',*/}
+      {/*                  children: s.browser,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_ip',*/}
+      {/*                  label: 'IP манзил',*/}
+      {/*                  children: s.ip_address,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_status',*/}
+      {/*                  label: 'Ҳолат',*/}
+      {/*                  children: <Badge status="processing" text={s.status} />,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_location',*/}
+      {/*                  label: 'Жойлашув',*/}
+      {/*                  children: s.login_location,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_duration',*/}
+      {/*                  label: 'Сессия давомийлиги (дақиқада)',*/}
+      {/*                  children: s.login_duration,*/}
+      {/*                },*/}
+      {/*                {*/}
+      {/*                  key: 'session_login_attempts',*/}
+      {/*                  label: 'Кириш уринишлари',*/}
+      {/*                  children: s.login_attempts,*/}
+      {/*                },*/}
+      {/*              ]}*/}
+      {/*            />*/}
+      {/*          ),*/}
+      {/*          extra:*/}
+      {/*            s.device_type === 'desktop' ? (*/}
+      {/*              <LaptopOutlined />*/}
+      {/*            ) : s.device_type === 'tablet' ? (*/}
+      {/*              <TabletOutlined />*/}
+      {/*            ) : (*/}
+      {/*              <MobileOutlined />*/}
+      {/*            ),*/}
+      {/*        }))}*/}
+      {/*      />*/}
+      {/*    )}*/}
+      {/*  </Card>*/}
+      {/*</Col>*/}
     </Row>
   );
 };

@@ -16,7 +16,7 @@ import {
   SaveOutlined,
 } from '@ant-design/icons';
 import { useStylesContext } from '../../context';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 
 const SOCIALS = [
   'Facebook',

@@ -10,7 +10,7 @@ export const Error400Page = () => {
     <Result
       status="error"
       title="400"
-      subTitle="Bad request. The request could not be understood by the server due to malformed syntax. The client should not repeat the request without modifications"
+      subTitle="Yomon so'rov. Server noto'g'ri sintaksis tufayli so'rovni tushuna olmadi. Mijoz so'rovni o'zgartirmasdan qayta yubormasligi kerak."
       extra={[<BackBtn type="primary" />, <RefreshBtn />]}
     >
       <div className="desc">
@@ -21,17 +21,17 @@ export const Error400Page = () => {
               fontSize: 16,
             }}
           >
-            The content you submitted has the following error:
+            Siz yuborgan kontentda quyidagi xatolik bor:
           </Text>
         </Paragraph>
         <Paragraph>
           <CloseCircleOutlined style={{ color: red[5] }} />
-          &nbsp;Bad Request - Invalid URL &nbsp;<a>Forward error &gt;</a>
+          &nbsp;Yomon so'rov - Noto'g'ri URL &nbsp;<a>Xatoni yuborish &gt;</a>
         </Paragraph>
         <Paragraph>
           <CloseCircleOutlined style={{ color: red[5] }} />
-          &nbsp;Bad Request. Your browser sent a request that this server could
-          not understand &nbsp;<a>Go to console &gt;</a>
+          &nbsp;Yomon so'rov. Brauzeringiz server tushuna olmaydigan so'rov yubordi &nbsp;
+          <a>Konsolga o'tish &gt;</a>
         </Paragraph>
       </div>
     </Result>

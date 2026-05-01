@@ -1,4 +1,5 @@
 export { UserProfileDetailsPage } from './Details.tsx';
+export { UserProfileMyLearningPage } from './MyLearning.tsx';
 export { UserProfilePreferencesPage } from './Preferences.tsx';
 export { UserProfileInformationPage } from './Information.tsx';
 export { UserProfileSecurityPage } from './Security.tsx';

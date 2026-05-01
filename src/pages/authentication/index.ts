@@ -3,4 +3,7 @@ export { SignInPage } from './SignIn.tsx';
 export { WelcomePage } from './Welcome.tsx';
 export { VerifyEmailPage } from './VerifyEmail.tsx';
 export { PasswordResetPage } from './PasswordReset.tsx';
+export { ResetPasswordConfirmPage } from './ResetPasswordConfirm.tsx';
 export { AccountDeactivePage } from './AccountDeactivate.tsx';
+export { GoogleCallbackPage } from './GoogleCallback.tsx';
+export { CompleteProfilePage } from './CompleteProfile.tsx';

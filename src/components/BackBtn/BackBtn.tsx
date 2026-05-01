@@ -17,7 +17,7 @@ export const BackBtn = ({ wIcon, iconOnly, ...others }: Props) => {
         onClick={() => navigate(-1)}
         {...others}
       >
-        {!iconOnly && 'Go back'}
+        {!iconOnly && 'Бош саҳифага'}
       </Button>
     </Tooltip>
   );

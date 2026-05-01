@@ -1,42 +1,74 @@
+import { useState } from 'react';
 import {
   Button,
-  Checkbox,
   Col,
+  DatePicker,
   Divider,
   Flex,
   Form,
   Input,
   message,
   Row,
-  Select,
   theme,
   Typography,
 } from 'antd';
-import {
-  FacebookFilled,
-  GoogleOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
-import { Logo } from '../../components';
 import { useMediaQuery } from 'react-responsive';
-import { PATH_AUTH } from '../../constants';
-import { useState } from 'react';
-import moment from 'moment';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
+import { useDispatch } from 'react-redux';
+import { Logo } from '../../components';
+import { PATH_AUTH, PATH_COURSE } from '../../constants';
+import {
+  fetchCurrentUser,
+  signupWithLocalAccount,
+} from '../../redux/auth/authApi.ts';
+import {
+  buildGoogleOauthUrl,
+  saveOauthIntent,
+} from '../../redux/auth/authSession.ts';
+import { setCurrentUser, setSession } from '../../redux/auth/authSlice.ts';
+import { AuthProviderButtons } from './AuthProviderButtons.tsx';
 
-const { Title, Text, Link } = Typography;
-const { Option } = Select;
+const { Title, Text } = Typography;
 
-type FieldType = {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  password?: string;
-  confirmPassword?: string;
-  terms?: boolean;
-  day?: string;
-  month?: string;
-  year?: string;
+type SignUpFormValues = {
+  firstname: string;
+  lastname: string;
+  middlename?: string;
+  email: string;
+  phoneNumber: string;
+  birthday: dayjs.Dayjs;
+  passportId: string;
+  password: string;
+  confirmPassword: string;
+};
+
+const getReadableSignupError = (error: unknown) => {
+  const err = error as {
+    response?: { status?: number; data?: { message?: string; detail?: string; errors?: { message?: string } } };
+    message?: string;
+  };
+
+  const rawMessage =
+    err?.response?.data?.errors?.message ||
+    err?.response?.data?.detail ||
+    err?.response?.data?.message ||
+    err?.message ||
+    '';
+
+  if (/email/i.test(rawMessage) && /exists|mavjud|registered/i.test(rawMessage)) {
+    return 'Bu email bilan akkaunt allaqachon mavjud';
+  }
+
+  if (/phone|telefon/i.test(rawMessage) && /exists|mavjud|registered/i.test(rawMessage)) {
+    return "Bu telefon raqam allaqachon ro‘yxatdan o‘tgan";
+  }
+
+  if (/confirm/i.test(rawMessage) || /match/i.test(rawMessage)) {
+    return 'Parol va parol tasdig‘i mos emas';
+  }
+
+  return rawMessage || "Ro‘yxatdan o‘tishda xatolik yuz berdi";
 };
 
 export const SignUpPage = () => {
@@ -44,318 +76,290 @@ export const SignUpPage = () => {
     token: { colorPrimary },
   } = theme.useToken();
   const isMobile = useMediaQuery({ maxWidth: 769 });
-  // const navigate = useNavigate();
+  const [form] = Form.useForm<SignUpFormValues>();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<FieldType>({});
-  const [isTermsChecked, setIsTermsChecked] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
-  const onFinish = (values: any) => {
-    const { day, month, year } = formData;
-    if (!day || !month || !year) {
-      message.error('Илтимос, тўлиқ туғилган кунингизни киритинг.');
-      return;
-    }
+  const handleGoogleAuth = () => {
+    if (oauthLoading) return;
+    setOauthLoading(true);
+    saveOauthIntent('signup');
+    window.location.href = buildGoogleOauthUrl();
+  };
 
-    const birthday = `${year}-${month}-${day}`;
-
-    const payload = {
-      firstname: values.firstName,
-      lastname: values.lastName,
-      email: values.email,
-      password: values.password,
-      confirmPassword: values.confirmPassword,
-      birthday,
-    };
-
-    console.log('Yuborilayotgan maʼlumot:', payload);
-
+  const handleSubmit = async (values: SignUpFormValues) => {
     setLoading(true);
 
-    axios.post('http://localhost:8080/api/signup', payload).then((res) => {
-      console.log(res);
+    try {
+      const tokenPayload = await signupWithLocalAccount({
+        firstname: values.firstname.trim(),
+        lastname: values.lastname.trim(),
+        middlename: values.middlename?.trim() || '',
+        email: values.email.trim(),
+        phoneNumber: values.phoneNumber.trim(),
+        password: values.password,
+        confirmPassword: values.confirmPassword,
+        birthday: values.birthday.format('YYYY-MM-DD'),
+        passportId: values.passportId.trim(),
+      });
+
+      if (!tokenPayload?.id_token) {
+        throw new Error('Token topilmadi');
+      }
+
+      dispatch(setSession(tokenPayload.id_token));
+      const currentUser = await fetchCurrentUser();
+      dispatch(setCurrentUser(currentUser));
+
+      messageApi.success("Ro‘yxatdan o‘tish muvaffaqiyatli yakunlandi");
+      navigate(
+        currentUser.profileCompleted ? PATH_COURSE.catalog : PATH_AUTH.completeProfile,
+        { replace: true }
+      );
+    } catch (error) {
+      messageApi.error(getReadableSignupError(error));
+    } finally {
       setLoading(false);
-    });
+    }
   };
-
-  const onFinishFailed = (errorInfo: unknown) => {
-    console.log('Failed:', errorInfo);
-    message.error('Xatolik yuz berdi!');
-  };
-
-  const days = Array.from({ length: 31 }, (_, i) => i + 1);
-  const months = [
-    'Январь',
-    'Февраль',
-    'Март',
-    'Апрель',
-    'Май',
-    'Июнь',
-    'Июль',
-    'Август',
-    'Сентябрь',
-    'Октябрь',
-    'Ноябрь',
-    'Декабрь',
-  ];
-  const monthsValue = Array.from({ length: 12 }, (_, i) => i + 1);
-  const years = Array.from({ length: 100 }, (_, i) => moment().year() - i);
 
   return (
-    <Row style={{ minHeight: isMobile ? 'auto' : '100vh', overflow: 'hidden' }}>
-      <Col xs={24} lg={12}>
-        <Flex
-          vertical
-          align="center"
-          justify="center"
-          className="text-center"
-          style={{ background: colorPrimary, height: '100%', padding: '1rem' }}
-        >
-          <Logo color="white" href={'/'} asLink />
-          <Title
-            level={2}
-            className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl"
-          >
-            IBMS га хуш келибсиз!
-          </Title>
-          <Text
-            className="text-white text-sm sm:text-base md:text-lg lg:text-xl"
-            style={{ fontSize: 18 }}
-          >
-            «INTER BIZNES MEGA SERVIS» НОДАВЛАТ ТАЪЛИМ МУАССАСАСИ
-          </Text>
-        </Flex>
-      </Col>
-      <Col xs={24} lg={12}>
-        <Flex
-          vertical
-          align={isMobile ? 'center' : 'flex-start'}
-          justify="center"
-          gap="middle"
-          style={{ height: '100%', padding: '2rem' }}
-        >
-          <Title className="m-0 text-lg sm:text-xl md:text-2xl lg:text-3xl ">
-            Рўйхатдан&nbsp;ўтиш
-          </Title>
-          <div>
-            <Text>Аллақачон рўйхатдан ўтганмисиз?</Text>&nbsp;
-            <Link href={PATH_AUTH.signin}>Тизимга киринг</Link>
-          </div>
-          <Flex
-            vertical={isMobile}
-            gap="small"
-            wrap="wrap"
-            style={{ width: '100%' }}
-          >
-            <Button
-              icon={<GoogleOutlined />}
-              onClick={() =>
-                message.info(
-                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
-                )
-              }
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)',
+        padding: isMobile ? '20px 12px' : '32px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {contextHolder}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 1240,
+          background: '#ffffff',
+          borderRadius: 30,
+          overflow: 'hidden',
+          border: '1px solid rgba(148,163,184,0.14)',
+          boxShadow: '0 28px 80px rgba(15,23,42,0.08)',
+        }}
+      >
+        <Row gutter={0}>
+          <Col xs={24} lg={10}>
+            <Flex
+              vertical
+              align="center"
+              justify="center"
+              className="text-center"
+              style={{
+                background: `linear-gradient(160deg, ${colorPrimary} 0%, #1d4ed8 100%)`,
+                height: '100%',
+                minHeight: isMobile ? 220 : 780,
+                padding: isMobile ? '28px 22px' : '48px 36px',
+              }}
             >
-              Google билан рўйхатдан ўтиш
-            </Button>
-            <Button
-              icon={<FacebookFilled />}
-              onClick={() =>
-                message.info(
-                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
-                )
-              }
-            >
-              Facebook билан рўйхатдан ўтиш
-            </Button>
-            <Button
-              icon={<UserOutlined />}
-              onClick={() =>
-                message.info(
-                  'Ҳозирча бу сервисимиз ишламаяпти. Илтимос, кейинроқ қайта уриниб кўринг.'
-                )
-              }
-            >
-              One ID орқали
-            </Button>
-          </Flex>
-          <Divider className="m-0">ёки</Divider>
-          <Form
-            name="sign-up-form"
-            layout="vertical"
-            labelCol={{ span: 8 }}
-            wrapperCol={{ span: 24 }}
-            initialValues={{ remember: true }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="off"
-            requiredMark={false}
-          >
-            <Row gutter={[8, 0]}>
-              <Col xs={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Исм"
-                  name="firstName"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Исмингизни киритинг!',
-                    },
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col xs={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Фамилия"
-                  name="lastName"
-                  rules={[
-                    { required: true, message: 'Фамилиянгизни киритинг!' },
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-              </Col>
-
-              <Col xs={8} lg={8}>
-                <Form.Item<FieldType>
-                  label="Туғилган&nbsp;кун"
-                  name="day"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Туғилган кунингизни киритинг!',
-                    },
-                  ]}
-                  labelCol={{ span: 24 }}
-                >
-                  <Select
-                    style={{ width: '100%' }}
-                    value={formData.day}
-                    onChange={(value) =>
-                      setFormData({ ...formData, day: value })
-                    }
-                  >
-                    {days.map((day) => (
-                      <Option key={day} value={day < 10 ? `0${day}` : `${day}`}>
-                        {day < 10 ? `0${day}` : `${day}`}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-
-              <Col xs={9} lg={8}>
-                <Form.Item<FieldType>
-                  label="Ой"
-                  name="month"
-                  rules={[{ required: true, message: 'Ойни киритинг!' }]}
-                  labelCol={{ span: 24 }}
-                >
-                  <Select
-                    style={{ width: '100%' }}
-                    value={formData.month}
-                    onChange={(value) =>
-                      setFormData({ ...formData, month: value })
-                    }
-                  >
-                    {months.map((month, index) => (
-                      <Option
-                        key={index}
-                        value={String(monthsValue[index]).padStart(2, '0')}
-                      >
-                        {month}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-
-              <Col xs={7} lg={8}>
-                <Form.Item<FieldType>
-                  label="Йил"
-                  name="year"
-                  rules={[{ required: true, message: 'Йилни киритинг!' }]}
-                  labelCol={{ span: 24 }}
-                >
-                  <Select
-                    style={{ width: '100%' }}
-                    value={formData.year}
-                    onChange={(value) =>
-                      setFormData({ ...formData, year: value })
-                    }
-                  >
-                    {years.map((year) => (
-                      <Option key={year} value={year}>
-                        {year}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-
-              <Col xs={24}>
-                <Form.Item<FieldType>
-                  label="Электрон почта"
-                  name="email"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Электрон почтангизни киритинг!',
-                    },
-                  ]}
-                >
-                  <Input type={'email'} />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item<FieldType>
-                  label="Парол"
-                  name="password"
-                  rules={[{ required: true, message: 'Паролни киритинг!' }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item<FieldType>
-                  label="Паролни тасдиқланг"
-                  name="confirmPassword"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Пароллар бир хил бўлиши керак!',
-                    },
-                  ]}
-                >
-                  <Input.Password />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item<FieldType> name="terms" valuePropName="checked">
-                  <Checkbox
-                    onChange={(e) => setIsTermsChecked(e.target.checked)}
-                  >
-                    Мен&nbsp;сайтдан&nbsp;фойдаланиш&nbsp;ва&nbsp;
-                    <Link>шартлари ва қоидаларига</Link>
-                    &nbsp;&nbsp;розиман
-                  </Checkbox>
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                size="middle"
-                loading={loading}
-                disabled={!isTermsChecked}
+              <Logo color="white" href="/" asLink />
+              <Title
+                level={isMobile ? 2 : 1}
+                className="text-white"
+                style={{ marginBottom: 12, letterSpacing: '-0.02em' }}
               >
-                Тасдиқлаш
-              </Button>
-            </Form.Item>
-          </Form>
-        </Flex>
-      </Col>
-    </Row>
+                Yangi akkaunt yarating
+              </Title>
+              <Text
+                className="text-white"
+                style={{ fontSize: isMobile ? 16 : 18, maxWidth: 380, lineHeight: 1.6 }}
+              >
+                Ro‘yxatdan o‘ting va o‘qishni boshlang.
+              </Text>
+            </Flex>
+          </Col>
+
+          <Col xs={24} lg={14}>
+            <Flex
+              vertical
+              gap={20}
+              style={{
+                padding: isMobile ? '28px 20px 24px' : '48px 40px',
+              }}
+            >
+              <div>
+                <Title
+                  style={{
+                    margin: 0,
+                    fontSize: isMobile ? 28 : 34,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Ro‘yxatdan o‘tish
+                </Title>
+                <Flex
+                  align="center"
+                  justify="space-between"
+                  gap={12}
+                  wrap="wrap"
+                  style={{
+                    marginTop: 14,
+                    padding: '12px 16px',
+                    borderRadius: 18,
+                    border: '1px solid rgba(191, 219, 254, 0.9)',
+                    background: '#f8fbff',
+                  }}
+                >
+                  <Text style={{ color: '#52606d', fontSize: 15 }}>Allaqachon akkauntingiz bormi?</Text>
+                  <Link
+                    to={PATH_AUTH.signin}
+                    style={{
+                      color: '#2563eb',
+                      fontWeight: 700,
+                      fontSize: 16,
+                      padding: '8px 14px',
+                      borderRadius: 999,
+                      background: '#ffffff',
+                      boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
+                    }}
+                  >
+                    Tizimga kirish
+                  </Link>
+                </Flex>
+              </div>
+
+              <AuthProviderButtons
+                googleLabel="Google orqali ro‘yxatdan o‘tish"
+                googleLoading={oauthLoading}
+                onGoogleClick={handleGoogleAuth}
+              />
+
+              <Divider className="m-0">yoki</Divider>
+
+              <Form<SignUpFormValues>
+                form={form}
+                name="sign-up-form"
+                layout="vertical"
+                onFinish={handleSubmit}
+                autoComplete="off"
+                requiredMark={false}
+                style={{ width: '100%' }}
+              >
+                <Row gutter={[12, 0]}>
+                  <Col xs={24} md={8}>
+                    <Form.Item
+                      label="Ism"
+                      name="firstname"
+                      rules={[{ required: true, message: 'Ismni kiriting' }]}
+                    >
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item
+                      label="Familiya"
+                      name="lastname"
+                      rules={[{ required: true, message: 'Familiyani kiriting' }]}
+                    >
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <Form.Item label="Sharif" name="middlename">
+                      <Input size="large" />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Email"
+                      name="email"
+                      rules={[
+                        { required: true, message: 'Email kiriting' },
+                        { type: 'email', message: 'Email formatini tekshiring' },
+                      ]}
+                    >
+                      <Input size="large" autoComplete="email" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Telefon raqam"
+                      name="phoneNumber"
+                      rules={[{ required: true, message: 'Telefon raqam kiriting' }]}
+                    >
+                      <Input size="large" placeholder="+998901234567" autoComplete="tel" />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Tug‘ilgan sana"
+                      name="birthday"
+                      rules={[{ required: true, message: "Tug‘ilgan sanani tanlang" }]}
+                    >
+                      <DatePicker size="large" style={{ width: '100%' }} format="YYYY-MM-DD" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Passport seriya va raqami"
+                      name="passportId"
+                      rules={[{ required: true, message: 'Passport ma’lumotini kiriting' }]}
+                    >
+                      <Input size="large" placeholder="AA1234567" />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Parol"
+                      name="password"
+                      rules={[{ required: true, message: 'Parolni kiriting' }]}
+                    >
+                      <Input.Password size="large" autoComplete="new-password" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Parolni tasdiqlang"
+                      name="confirmPassword"
+                      dependencies={['password']}
+                      rules={[
+                        { required: true, message: 'Parolni tasdiqlang' },
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue('password') === value) {
+                              return Promise.resolve();
+                            }
+
+                            return Promise.reject(new Error('Parollar mos emas'));
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input.Password size="large" autoComplete="new-password" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    size="large"
+                    loading={loading}
+                    style={{ minWidth: isMobile ? '100%' : 180 }}
+                  >
+                    Ro‘yxatdan o‘tish
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Flex>
+          </Col>
+        </Row>
+      </div>
+    </div>
   );
 };

@@ -4,9 +4,9 @@ function path(root: string, sublink: string) {
 
 const ROOTS_LANDING = '/';
 const ROOTS_DASHBOARD = '/dashboards';
-const ROOTS_SITEMAP = '/sitemap';
+const ROOTS_COURSES = '/courses';
+const ROOTS_COURSE = '/course';
 const ROOTS_LAYOUT = '/layouts';
-const ROOTS_CORPORATE = '/corporate';
 const ROOTS_PROFILE = '/user-profile';
 const ROOTS_SOCIAL = '/social';
 const ROOTS_BLOG = '/blog';
@@ -36,20 +36,17 @@ export const PATH_DASHBOARD = {
   root: ROOTS_DASHBOARD,
   courses: path(ROOTS_DASHBOARD, '/courses'),
   users: path(ROOTS_DASHBOARD, '/users'),
+  monitoring: path(ROOTS_DASHBOARD, '/monitoring'),
+  groups: '/admin/groups',
+  qrCode: path(ROOTS_DASHBOARD, '/qrCode'),
   topics: path(ROOTS_DASHBOARD, '/topics'),
   videos: path(ROOTS_DASHBOARD, '/videos'),
-  default: path(ROOTS_DASHBOARD, '/default'),
-  projects: path(ROOTS_DASHBOARD, '/projects'),
-  ecommerce: path(ROOTS_DASHBOARD, '/ecommerce'),
-  marketing: path(ROOTS_DASHBOARD, '/marketing'),
-  social: path(ROOTS_DASHBOARD, '/social'),
-  bidding: path(ROOTS_DASHBOARD, '/bidding'),
-  learning: path(ROOTS_DASHBOARD, '/learning'),
-  logistics: path(ROOTS_DASHBOARD, '/logistics'),
+  tests: path(ROOTS_DASHBOARD, '/tests'),
 };
 
-export const PATH_SITEMAP = {
-  root: ROOTS_SITEMAP,
+export const PATH_COURSE = {
+  catalog: ROOTS_COURSES,
+  details: (courseId: string) => path(ROOTS_COURSE, `/${courseId}`),
 };
 
 export const PATH_LAYOUT = {
@@ -66,21 +63,12 @@ export const PATH_LAYOUT = {
   },
 };
 
-export const PATH_CORPORATE = {
-  root: ROOTS_CORPORATE,
-  about: path(ROOTS_CORPORATE, '/about'),
-  team: path(ROOTS_CORPORATE, '/team'),
-  faqs: path(ROOTS_CORPORATE, '/faqs'),
-  contact: path(ROOTS_CORPORATE, '/contact'),
-  pricing: path(ROOTS_CORPORATE, '/pricing'),
-  license: path(ROOTS_CORPORATE, '/license'),
-};
-
 export const PATH_USER_PROFILE = {
   root: ROOTS_PROFILE,
   details: path(ROOTS_PROFILE, '/details'),
+  myLearning: path(ROOTS_PROFILE, '/my-learning'),
   preferences: path(ROOTS_PROFILE, '/preferences'),
-  personalInformation: path(ROOTS_PROFILE, '/personal-information'),
+  personalInformation: path(ROOTS_PROFILE, '/information'),
   security: path(ROOTS_PROFILE, '/security'),
   activity: path(ROOTS_PROFILE, '/activity'),
   action: path(ROOTS_PROFILE, '/actions'),
@@ -122,8 +110,10 @@ export const PATH_AUTH = {
   root: ROOTS_AUTH,
   signin: path(ROOTS_AUTH, '/signin'),
   signup: path(ROOTS_AUTH, '/signup'),
+  googleCallback: path(ROOTS_AUTH, '/google/callback'),
+  completeProfile: path(ROOTS_AUTH, '/complete-profile'),
   passwordReset: path(ROOTS_AUTH, '/password-reset'),
-  passwordConfirm: path(ROOTS_AUTH, '/password-confirmation'),
+  passwordConfirm: '/reset-password',
   welcome: path(ROOTS_AUTH, '/welcome'),
   verifyEmail: path(ROOTS_AUTH, '/verify-email'),
   accountDelete: path(ROOTS_AUTH, '/account-delete'),

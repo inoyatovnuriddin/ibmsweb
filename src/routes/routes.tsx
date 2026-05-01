@@ -1,58 +1,47 @@
 import { createBrowserRouter, useLocation } from 'react-router-dom';
 import {
   AccountDeactivePage,
-  BiddingDashboardPage,
-  CorporateAboutPage,
-  CorporateContactPage,
-  CorporateFaqPage,
-  CorporateLicensePage,
-  CorporatePricingPage,
-  CorporateTeamPage,
-  DefaultDashboardPage,
-  EcommerceDashboardPage,
+  CompleteProfilePage,
+  CourseLearningPage,
+  CoursesPage,
+  DashboardCourseMonitoringPage,
+  DashboardCoursesPage,
+  DashboardGroupDetailsPage,
+  DashboardGroupsPage,
+  DashboardQrCodePage,
+  DashboardTestsPage,
+  DashboardUsersPage,
+  DashboardVideosPage,
   Error400Page,
   Error403Page,
   Error404Page,
   Error500Page,
   Error503Page,
   ErrorPage,
+  GoogleCallbackPage,
   HomePage,
-  MarketingDashboardPage,
   PasswordResetPage,
-  ProjectsDashboardPage,
+  ResetPasswordConfirmPage,
   SignInPage,
   SignUpPage,
-  SitemapPage,
-  SocialDashboardPage,
+  Topics,
   UserProfileActionsPage,
   UserProfileActivityPage,
   UserProfileDetailsPage,
   UserProfileFeedbackPage,
   UserProfileHelpPage,
   UserProfileInformationPage,
+  UserProfileMyLearningPage,
   UserProfilePreferencesPage,
   UserProfileSecurityPage,
   VerifyEmailPage,
   WelcomePage,
-  LearningDashboardPage,
-  LogisticsDashboardPage,
-  DashboardCoursesPage,
-  Topics,
-  DashboardUsersPage,
-  DashboardVideosPage,
 } from '../pages';
-import {
-  CorporateLayout,
-  DashboardLayout,
-  GuestLayout,
-  UserAccountLayout,
-} from '../layouts';
-import { CoursesPage, ViewCourse } from '../pages/course';
+import { DashboardLayout, GuestLayout, UserAccountLayout } from '../layouts';
 import React, { ReactNode, useEffect } from 'react';
-import { AboutPage } from '../pages/About.tsx';
-import { TestPage } from '../pages/test';
+import { ProtectedRoute } from './ProtectedRoute.tsx';
+import { DiplomaQrPage } from '../pages/diploma';
 
-// Custom scroll restoration function
 export const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
 
@@ -61,17 +50,16 @@ export const ScrollToTop: React.FC = () => {
       top: 0,
       left: 0,
       behavior: 'smooth',
-    }); // Scroll to the top when the location changes
+    });
   }, [pathname]);
 
-  return null; // This component doesn't render anything
+  return null;
 };
 
 type PageProps = {
   children: ReactNode;
 };
 
-// Create an HOC to wrap your route components with ScrollToTop
 const PageWrapper = ({ children }: PageProps) => {
   return (
     <>
@@ -81,7 +69,6 @@ const PageWrapper = ({ children }: PageProps) => {
   );
 };
 
-// Create the router
 const router = createBrowserRouter([
   {
     path: '/',
@@ -113,21 +100,46 @@ const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       {
-        path: '',
-        element: <ViewCourse />,
-        children: [
-          {
-            path: 'test',
-            element: <TestPage />,
-          },
-        ],
+        index: true,
+        element: <CourseLearningPage />,
       },
     ],
   },
-
+  {
+    path: '/diploma/:diplomaId/qr',
+    element: <DiplomaQrPage />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: '/admin',
+    element: (
+      <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+        <PageWrapper>
+          <DashboardLayout />
+        </PageWrapper>
+      </ProtectedRoute>
+    ),
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: 'groups',
+        element: <DashboardGroupsPage />,
+      },
+      {
+        path: 'groups/:groupId',
+        element: <DashboardGroupDetailsPage />,
+      },
+    ],
+  },
   {
     path: '/dashboards',
-    element: <PageWrapper children={<DashboardLayout />} />,
+    element: (
+      <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+        <PageWrapper>
+          <DashboardLayout />
+        </PageWrapper>
+      </ProtectedRoute>
+    ),
     errorElement: <ErrorPage />,
     children: [
       {
@@ -148,92 +160,38 @@ const router = createBrowserRouter([
         element: <DashboardUsersPage />,
       },
       {
-        path: 'default',
-        element: <DefaultDashboardPage />,
+        path: 'qrCode',
+        element: <DashboardQrCodePage />,
       },
       {
-        path: 'projects',
-        element: <ProjectsDashboardPage />,
+        path: 'tests',
+        element: <DashboardTestsPage />,
       },
       {
-        path: 'ecommerce',
-        element: <EcommerceDashboardPage />,
-      },
-      {
-        path: 'marketing',
-        element: <MarketingDashboardPage />,
-      },
-      {
-        path: 'social',
-        element: <SocialDashboardPage />,
-      },
-      {
-        path: 'bidding',
-        element: <BiddingDashboardPage />,
-      },
-      {
-        path: 'learning',
-        element: <LearningDashboardPage />,
-      },
-      {
-        path: 'logistics',
-        element: <LogisticsDashboardPage />,
-      },
-    ],
-  },
-  {
-    path: '/sitemap',
-    element: <PageWrapper children={<DashboardLayout />} />,
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        path: '',
-        element: <SitemapPage />,
-      },
-    ],
-  },
-  {
-    path: '/corporate',
-    element: <PageWrapper children={<CorporateLayout />} />,
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        path: 'about',
-        element: <CorporateAboutPage />,
-      },
-      {
-        path: 'team',
-        element: <CorporateTeamPage />,
-      },
-      {
-        path: 'faqs',
-        element: <CorporateFaqPage />,
-      },
-      {
-        path: 'contact',
-        element: <CorporateContactPage />,
-      },
-      {
-        path: 'pricing',
-        element: <CorporatePricingPage />,
-      },
-      {
-        path: 'license',
-        element: <CorporateLicensePage />,
+        path: 'monitoring',
+        element: <DashboardCourseMonitoringPage />,
       },
     ],
   },
   {
     path: '/user-profile',
-    element: <PageWrapper children={<UserAccountLayout />} />,
+    element: (
+      <ProtectedRoute
+        allowedRoles={['ROLE_ADMIN', 'ROLE_USER', 'ROLE_INSTRUCTOR']}
+      >
+        <PageWrapper children={<UserAccountLayout />} />
+      </ProtectedRoute>
+    ),
     errorElement: <ErrorPage />,
     children: [
       {
         index: true,
         path: 'details',
         element: <UserProfileDetailsPage />,
+      },
+      {
+        path: 'my-learning',
+        element: <UserProfileMyLearningPage />,
       },
       {
         path: 'preferences',
@@ -266,6 +224,21 @@ const router = createBrowserRouter([
     ],
   },
   {
+    path: '/reset-password',
+    element: <ResetPasswordConfirmPage />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: '/signup',
+    element: <SignUpPage />,
+    errorElement: <ErrorPage />,
+  },
+  {
+    path: '/login',
+    element: <SignInPage />,
+    errorElement: <ErrorPage />,
+  },
+  {
     path: '/auth',
     errorElement: <ErrorPage />,
     children: [
@@ -276,6 +249,14 @@ const router = createBrowserRouter([
       {
         path: 'signin',
         element: <SignInPage />,
+      },
+      {
+        path: 'google/callback',
+        element: <GoogleCallbackPage />,
+      },
+      {
+        path: 'complete-profile',
+        element: <CompleteProfilePage />,
       },
       {
         path: 'welcome',
@@ -320,19 +301,7 @@ const router = createBrowserRouter([
         element: <Error503Page />,
       },
     ],
-  },
-  {
-    path: '/about',
-    element: <PageWrapper children={<DashboardLayout />} />,
-    errorElement: <ErrorPage />,
-    children: [
-      {
-        index: true,
-        path: '',
-        element: <AboutPage />,
-      },
-    ],
-  },
+  }
 ]);
 
 export default router;

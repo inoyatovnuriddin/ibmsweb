@@ -9,12 +9,19 @@ type Error = unknown | any;
 export const ErrorPage = () => {
   const error: Error = useRouteError();
   console.error(error);
+  const rawMessage = error?.statusText || error?.message || 'Noma’lum xatolik';
+  const normalizedMessage =
+    rawMessage === 'Not Found'
+      ? 'Sahifa topilmadi'
+      : rawMessage === 'Unexpected Application Error!'
+        ? 'Kutilmagan dasturiy xatolik yuz berdi'
+        : rawMessage;
 
   return (
     <Result
       status="error"
-      title="Oops!"
-      subTitle="Sorry, an unexpected error has occurred."
+      title="Xatolik yuz berdi"
+      subTitle="Sahifani ochishda kutilmagan muammo yuz berdi."
       extra={[<BackBtn type="primary" />, <RefreshBtn />]}
     >
       <div className="desc">
@@ -25,10 +32,10 @@ export const ErrorPage = () => {
               fontSize: 16,
             }}
           >
-            The page you tried to open has the following error:
+            Ochmoqchi bo‘lgan sahifangizda quyidagi xatolik aniqlandi:
           </Text>
         </Paragraph>
-        <Paragraph copyable>{error.statusText || error.message}</Paragraph>
+        <Paragraph copyable>{normalizedMessage}</Paragraph>
       </div>
     </Result>
   );

@@ -1,21 +1,24 @@
 // src/redux/store.ts
 
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import themeReducer, { ThemeState } from './theme/themeSlice';
-import courseReducer from './course/courseSlice'; 
-import { persistReducer, persistStore, PersistConfig } from 'redux-persist';
+import courseReducer from './course/courseSlice';
+import authReducer from './auth/authSlice';
+import { PersistConfig, persistReducer, persistStore } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 
 // Define the state shape
 interface RootState {
   theme: ThemeState;
-  course: ReturnType<typeof courseReducer>; 
+  course: ReturnType<typeof courseReducer>;
+  auth: ReturnType<typeof authReducer>;
 }
 
 // Combine reducers
 const rootReducer = combineReducers({
   theme: themeReducer,
-  course: courseReducer, 
+  course: courseReducer,
+  auth: authReducer
 });
 
 // Persist config with RootState

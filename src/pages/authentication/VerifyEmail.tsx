@@ -1,7 +1,7 @@
 import { Button, Flex, Typography } from 'antd';
 import { Logo } from '../../components';
 import { Link, useSearchParams } from 'react-router-dom';
-import { PATH_DASHBOARD } from '../../constants';
+import { PATH_LANDING } from '../../constants';
 
 export const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
@@ -41,7 +41,7 @@ export const VerifyEmailPage = () => {
         </Typography.Text>
 
         <Button type="primary" size="large" block>
-          <Link to={PATH_DASHBOARD.default}>Тасдиқлашни кейинроқ қилиш</Link>
+          <Link to={PATH_LANDING.root}>Тасдиқлашни кейинроқ қилиш</Link>
         </Button>
 
         <Flex justify="center" align="center" gap={4}>

@@ -10,10 +10,10 @@ export interface ListResult<T> {
 }
 
 export interface Response<T> {
-  statusName: string;
+  statusName?: string;
+  status?: string;
   statusCode: number;
   payload: T;
   errors?: any;
 }
-
 

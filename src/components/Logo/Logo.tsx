@@ -1,7 +1,7 @@
-import { Flex, FlexProps, theme, Typography } from 'antd';
+import { Flex, FlexProps } from 'antd';
 import { Link } from 'react-router-dom';
 import { CSSProperties } from 'react';
-import logo from './ibms-logo.jpg';
+import logo from './ibms.svg';
 
 import './styles.css';
 
@@ -18,57 +18,28 @@ type LogoProps = {
 
 export const Logo = ({
   asLink,
-  color,
   href,
   imgSize,
-  bgColor,
   ...others
 }: LogoProps) => {
-  
-
-  // const {
-  //   token: { borderRadius },
-  // } = theme.useToken();
+  const content = (
+    <Flex gap={others.gap || 'middle'} align="center" {...others}>
+      <div className="logo-shell">
+        <img
+          src={logo}
+          alt="IBMS logo"
+          height={imgSize?.h || 62}
+          className="logo-image"
+        />
+      </div>
+    </Flex>
+  );
 
   return asLink ? (
     <Link to={href || '#'} className="logo-link">
-      <Flex gap={others.gap || 'small'} align="center" {...others}>
-        <img src={logo} alt="design sparx logo" height={imgSize?.h || 60} />
-        {/*<Typography.Title*/}
-        {/*  level={5}*/}
-        {/*  type="secondary"*/}
-        {/*  style={{*/}
-        {/*    color,*/}
-        {/*    margin: 0,*/}
-        {/*    padding: `4px 8px`,*/}
-        {/*    backgroundColor: bgColor,*/}
-        {/*    borderRadius,*/}
-        {/*  }}*/}
-        {/*>*/}
-        {/*  IBMS*/}
-        {/*</Typography.Title>*/}
-      </Flex>
+      {content}
     </Link>
   ) : (
-    <Flex gap={others.gap || 'small'} align="center" {...others}>
-      <img
-        src="/logo-no-background.png"
-        alt="design sparx logo"
-        height={imgSize?.h || 80}
-      />
-      {/*<Typography.Title*/}
-      {/*  level={4}*/}
-      {/*  type="secondary"*/}
-      {/*  style={{*/}
-      {/*    color,*/}
-      {/*    margin: 0,*/}
-      {/*    padding: `4px 8px`,*/}
-      {/*    backgroundColor: bgColor,*/}
-      {/*    borderRadius,*/}
-      {/*  }}*/}
-      {/*>*/}
-      {/*   IBMS*/}
-      {/*</Typography.Title>*/}
-    </Flex>
+    content
   );
 };

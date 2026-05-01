@@ -1,11 +1,11 @@
 import {
   Button,
   Drawer,
-  Flex,
   FloatButton,
   Layout,
-  theme,
-  Tooltip,
+  Select,
+  Space,
+  Typography,
 } from 'antd';
 import {
   CSSTransition,
@@ -13,161 +13,223 @@ import {
   TransitionGroup,
 } from 'react-transition-group';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AppstoreAddOutlined,
-  GithubOutlined,
   LoginOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
+  MenuOutlined,
   PhoneOutlined,
   ProductOutlined,
   ReadOutlined,
-  SolutionOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useMediaQuery } from 'react-responsive';
+import { motion } from 'framer-motion';
 import { Logo, NProgress } from '../../components';
-import {
-  PATH_AUTH,
-  PATH_DASHBOARD,
-  PATH_DOCS,
-  PATH_GITHUB,
-  PATH_LANDING,
-} from '../../constants';
+import { PATH_AUTH, PATH_COURSE, PATH_LANDING } from '../../constants';
 
 const { Header, Content, Footer } = Layout;
+const { Text, Title } = Typography;
+
+const NAV_ITEMS = [
+  {
+    label: 'Bosh sahifa',
+    href: '/',
+    icon: <ProductOutlined />,
+  },
+  {
+    label: 'Kurslar',
+    href: PATH_COURSE.catalog,
+    icon: <ReadOutlined />,
+  },
+  {
+    label: 'Aloqa',
+    href: '/#contact',
+    icon: <PhoneOutlined />,
+  },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: 'uz-latn', label: "O'zbek" },
+  { value: 'ru', label: 'Русский' },
+  { value: 'uz-cyrl', label: 'Ўзбекча' },
+];
 
 export const GuestLayout = () => {
-  const {
-    token: { borderRadius },
-  } = theme.useToken();
-  const isMobile = useMediaQuery({ maxWidth: 769 });
+  const isMobile = useMediaQuery({ maxWidth: 992 });
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
   const nodeRef = useRef(null);
   const [navFill, setNavFill] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const showDrawer = () => {
-    setOpen(true);
-  };
+  useEffect(() => {
+    const onScroll = () => {
+      setNavFill(window.scrollY > 12);
+    };
 
-  const onClose = () => {
-    setOpen(false);
-  };
+    onScroll();
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 50) {
-        setNavFill(true);
-      } else {
-        setNavFill(false);
-      }
-    });
+    setOpen(false);
+  }, [location.pathname]);
+
+  const authButton = useMemo(() => {
+    if (localStorage.getItem('access_token')) {
+      return (
+        <Link to="/user-profile/details">
+          <Button
+            icon={<UserOutlined />}
+            type="primary"
+            size="large"
+            style={{ height: 48, borderRadius: 16, paddingInline: 20 }}
+          >
+            Profil
+          </Button>
+        </Link>
+      );
+    }
+
+    return (
+      <Link to={PATH_AUTH.signin}>
+        <Button
+          icon={<LoginOutlined />}
+          type="primary"
+          size="large"
+          style={{ height: 48, borderRadius: 16, paddingInline: 20 }}
+        >
+          Kirish
+        </Button>
+      </Link>
+    );
   }, []);
 
   return (
     <>
       <NProgress isAnimating={isLoading} key={location.key} />
-      <Layout
-        className="layout"
-        style={{
-          minHeight: '100vh',
-          // backgroundColor: 'white',
-        }}
-      >
+      <Layout style={{ minHeight: '100vh', background: '#f8fafc' }}>
         <Header
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            // background: navFill ? 'rgba(255, 255, 255, .5)' : 'none',
-            backdropFilter: navFill ? 'blur(8px)' : 'none',
-            boxShadow: navFill ? '0 0 8px 2px rgba(0, 0, 0, 0.05)' : 'none',
-            gap: 12,
             position: 'sticky',
             top: 0,
-            padding: isMobile ? '0 1rem' : '0 2rem',
-            zIndex: 1,
-            color: 'white',
+            zIndex: 100,
+            height: 'auto',
+            lineHeight: 'normal',
+            padding: '16px 20px',
+            background: navFill ? 'rgba(255, 251, 245, 0.9)' : 'rgba(255, 255, 255, 0.72)',
+            backdropFilter: 'blur(18px)',
+            borderBottom: navFill
+              ? '1px solid rgba(148,163,184,0.14)'
+              : '1px solid transparent',
+            transition: 'all .25s ease',
+            boxShadow: navFill ? '0 14px 40px rgba(15,23,42,0.06)' : 'none',
           }}
         >
-          <Logo color="blue" asLink href={PATH_LANDING.root} />
-          {!isMobile ? (
-            <>
-              <Flex gap="small">
-                <Link to={'#'}>
-                  <Button icon={<ProductOutlined />} type="link">
-                    Бош саҳифа
-                  </Button>
-                </Link>
-                <Link to={'/courses'}>
-                  <Button icon={<SolutionOutlined />} type="link">
-                    Курслaр
-                  </Button>
-                </Link>
-                <Link to={'#news'}>
-                  <Button icon={<ReadOutlined />} type="link">
-                    Янгиликлар
-                  </Button>
-                </Link>{' '}
-                <Link to={'#contact'}>
-                  <Button icon={<PhoneOutlined />} type="link">
-                    Алоқа
-                  </Button>
-                </Link>
-                <Link to={PATH_AUTH.signin}>
-                  <Button icon={<LoginOutlined />} type="primary">
-                    Kirish
-                  </Button>
-                </Link>
-              </Flex>
-            </>
-          ) : (
-            <Tooltip title={`Менюни ${!open ? 'очиш' : 'ёпиш'}`}>
+          <motion.div
+            initial={{ opacity: 0, y: -14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            style={{
+              maxWidth: 1320,
+              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+            }}
+          >
+            <Logo
+              color="white"
+              asLink
+              href={PATH_LANDING.root}
+              imgSize={{ h: 62 }}
+            />
+
+            {!isMobile ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  flex: 1,
+                  justifyContent: 'flex-end',
+                }}
+              >
+                <nav
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: 8,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,0.84)',
+                    border: '1px solid rgba(148,163,184,0.14)',
+                  }}
+                >
+                  {NAV_ITEMS.map((item) => (
+                    <a
+                      key={item.label}
+                      href={item.href}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <Button
+                        type="text"
+                        icon={item.icon}
+                        style={{
+                          color: '#102a43',
+                          height: 42,
+                          borderRadius: 999,
+                          paddingInline: 16,
+                        }}
+                      >
+                        {item.label}
+                      </Button>
+                    </a>
+                  ))}
+                </nav>
+                <Select
+                  defaultValue="uz-latn"
+                  options={LANGUAGE_OPTIONS}
+                  size="large"
+                  style={{ width: 148 }}
+                  dropdownStyle={{ borderRadius: 16 }}
+                />
+                {authButton}
+              </div>
+            ) : (
               <Button
                 type="text"
-                icon={open ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                onClick={showDrawer}
+                icon={<MenuOutlined />}
+                onClick={() => setOpen(true)}
                 style={{
-                  fontSize: '16px',
-                  width: 48,
-                  height: 48,
-                  color: 'white',
+                  color: '#102a43',
+                  width: 46,
+                  height: 46,
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.92)',
+                  border: '1px solid rgba(148,163,184,0.14)',
                 }}
               />
-            </Tooltip>
-          )}
+            )}
+          </motion.div>
         </Header>
-        <Content
-          style={{
-            // background: 'rgba(255, 255, 255, 1)',
-            borderRadius,
-            transition: 'all .25s',
-            paddingBottom: '10rem',
-          }}
-        >
+
+        <Content style={{ transition: 'all .25s ease' }}>
           <TransitionGroup>
             <SwitchTransition>
               <CSSTransition
                 key={`css-transition-${location.key}`}
                 nodeRef={nodeRef}
-                onEnter={() => {
-                  setIsLoading(true);
-                }}
-                onEntered={() => {
-                  setIsLoading(false);
-                }}
+                onEnter={() => setIsLoading(true)}
+                onEntered={() => setIsLoading(false)}
                 timeout={300}
                 classNames="page"
                 unmountOnExit
               >
                 {() => (
-                  <div
-                    ref={nodeRef}
-                    className="site-layout-content"
-                    style={{ background: 'none' }}
-                  >
+                  <div ref={nodeRef} className="site-layout-content">
                     <Outlet />
                   </div>
                 )}
@@ -176,45 +238,100 @@ export const GuestLayout = () => {
           </TransitionGroup>
           <FloatButton.BackTop />
         </Content>
+
         <Footer
           style={{
-            textAlign: 'center',
-            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+            background: '#fffaf4',
+            padding: '28px 20px 36px',
+            borderTop: '1px solid rgba(148,163,184,0.12)',
           }}
         >
-          IBMS &copy; {new Date().getFullYear()} Барча ҳуқуқлар ҳимояланган
+          <div
+            style={{
+              maxWidth: 1320,
+              margin: '0 auto',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <Title level={4} style={{ color: '#102a43', margin: 0 }}>
+                IBMS masofaviy taʼlim platformasi
+              </Title>
+              <Text style={{ color: '#486581' }}>
+                Kasbiy rivojlanish uchun kurslar, mavzular va testlar yagona tizimda.
+              </Text>
+            </div>
+            <Space wrap size="middle">
+              {NAV_ITEMS.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  style={{ color: '#102a43', textDecoration: 'none' }}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </Space>
+          </div>
         </Footer>
       </Layout>
-      <Drawer title="Меню" placement="left" onClose={onClose} open={open}>
-        <>
-          <Flex gap="small" vertical>
-            <Link to={'#'}>
-              <Button icon={<ProductOutlined />} type="link">
-                Бош саҳифа
+
+      <Drawer
+        title="Navigatsiya"
+        placement="right"
+        onClose={() => setOpen(false)}
+        open={open}
+        styles={{
+          body: {
+            padding: 20,
+            background:
+              'linear-gradient(180deg, #fffaf4 0%, #eef7ff 100%)',
+          },
+          header: {
+            background:
+              'linear-gradient(180deg, #fffaf4 0%, #eef7ff 100%)',
+            color: '#102a43',
+            borderBottom: '1px solid rgba(148,163,184,0.12)',
+          },
+        }}
+      >
+        <Space direction="vertical" size={14} style={{ width: '100%' }}>
+          <Select
+            defaultValue="uz-latn"
+            options={LANGUAGE_OPTIONS}
+            size="large"
+            style={{ width: '100%' }}
+            dropdownStyle={{ borderRadius: 16 }}
+          />
+          {NAV_ITEMS.map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              style={{ textDecoration: 'none' }}
+              onClick={() => setOpen(false)}
+            >
+              <Button
+                block
+                icon={item.icon}
+                style={{
+                  height: 48,
+                  borderRadius: 16,
+                  justifyContent: 'flex-start',
+                  color: '#102a43',
+                  background: 'rgba(255,255,255,0.92)',
+                  borderColor: 'rgba(148,163,184,0.14)',
+                }}
+              >
+                {item.label}
               </Button>
-            </Link>
-            <Link to={'/courses'}>
-              <Button icon={<SolutionOutlined />} type="link">
-                Курслaр
-              </Button>
-            </Link>
-            <Link to={'#news'}>
-              <Button icon={<ReadOutlined />} type="link">
-                Янгиликлар
-              </Button>
-            </Link>
-            <Link to={'#contact'}>
-              <Button icon={<PhoneOutlined />} type="link">
-                Алоқа
-              </Button>
-            </Link>
-            <Link to={PATH_AUTH.signin}>
-              <Button icon={<LoginOutlined />} type="primary">
-                Kirish
-              </Button>
-            </Link>
-          </Flex>
-        </>
+            </a>
+          ))}
+          <div style={{ paddingTop: 6 }}>{authButton}</div>
+        </Space>
       </Drawer>
     </>
   );

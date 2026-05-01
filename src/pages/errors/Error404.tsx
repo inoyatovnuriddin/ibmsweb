@@ -6,7 +6,7 @@ export const Error404Page = () => {
     <Result
       status="404"
       title="404"
-      subTitle="Sorry, the page you visited does not exist."
+      subTitle="Kechirasiz, siz tashrif buyurgan sahifa mavjud emas."
       extra={<BackBtn type="primary" />}
     />
   );

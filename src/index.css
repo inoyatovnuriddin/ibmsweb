@@ -1,7 +1,21 @@
 :root {
   font-family: 'Lato', sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  background: #f8fafc;
+}
+
+a {
+  color: inherit;
 }

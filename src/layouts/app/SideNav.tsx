@@ -1,287 +1,192 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ConfigProvider, Layout, Menu, MenuProps, SiderProps } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BranchesOutlined,
-  BugOutlined,
+  ConfigProvider,
+  Layout,
+  Menu,
+  MenuProps,
+  SiderProps,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
+import {
+  BarChartOutlined,
   FolderOpenOutlined,
-  IdcardOutlined,
-  InfoCircleOutlined,
-  PieChartOutlined,
+  GroupOutlined,
+  HomeOutlined,
+  QuestionCircleOutlined,
   ReadOutlined,
-  SecurityScanOutlined,
-  UserOutlined,
+  TeamOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import { Logo } from '../../components';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  PATH_ABOUT,
-  PATH_AUTH,
-  PATH_CORPORATE,
-  PATH_DASHBOARD,
-  PATH_ERROR,
-  PATH_LANDING,
-  PATH_SITEMAP,
-  PATH_USER_PROFILE,
-} from '../../constants';
-import { COLOR } from '../../App.tsx';
+import { Logo } from '../../components';
+import { PATH_DASHBOARD, PATH_LANDING } from '../../constants';
+import { apiClient } from '../../services/api.ts';
 
 const { Sider } = Layout;
+const { Text, Title } = Typography;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
-const getItem = (
-  label: React.ReactNode,
-  key: React.Key,
-  icon?: React.ReactNode,
-  children?: MenuItem[],
-  type?: 'group'
-): MenuItem => {
-  return {
-    key,
-    icon,
-    children,
-    label,
-    type,
-  } as MenuItem;
-};
-
-const rootSubmenuKeys = ['dashboards', 'corporate', 'user-profile'];
+interface User {
+  id: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  roles: string[];
+}
 
 type SideNavProps = SiderProps;
 
-const SideNav = ({ ...others }: SideNavProps) => {
-  const nodeRef = useRef(null);
+type SideNavContentProps = {
+  collapsed?: boolean;
+};
+
+const createItem = (
+  label: React.ReactNode,
+  key: React.Key,
+  icon?: React.ReactNode
+): MenuItem => ({
+  key,
+  icon,
+  label,
+});
+
+export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) => {
   const { pathname } = useLocation();
-  const [openKeys, setOpenKeys] = useState(['']);
   const [current, setCurrent] = useState('');
-
-  const onClick: MenuProps['onClick'] = (e) => {
-    console.log('click ', e);
-  };
-
-  const onOpenChange: MenuProps['onOpenChange'] = (keys) => {
-    const latestOpenKey = keys.find((key) => openKeys.indexOf(key) === -1);
-    if (latestOpenKey && rootSubmenuKeys.indexOf(latestOpenKey!) === -1) {
-      setOpenKeys(keys);
-    } else {
-      setOpenKeys(latestOpenKey ? [latestOpenKey] : []);
-    }
-  };
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const paths = pathname.split('/');
-    setOpenKeys(paths);
-    setCurrent(paths[paths.length - 1]);
+    if (pathname.includes('/groups')) {
+      setCurrent('groups');
+      return;
+    }
+
+    const parts = pathname.split('/');
+    setCurrent(parts[parts.length - 1]);
   }, [pathname]);
 
-  const location = useLocation();
+  useEffect(() => {
+    apiClient
+      .get('/v1/users/account')
+      .then((res) => setUser(res.data))
+      .catch(() => setUser(null));
+  }, []);
 
-  const isDashboardPage = location.pathname.startsWith('/dashboard');
-  const isUserProfilePage = location.pathname.startsWith('/user-profile');
-
-  const items: MenuProps['items'] = useMemo(() => {
-    return [
-      !isUserProfilePage &&
-        getItem('Dashboards', 'dashboards', <PieChartOutlined />, [
-          getItem(
-            <Link to={PATH_DASHBOARD.users}>Фойдаланувчилар</Link>,
-            'users',
-            <IdcardOutlined />
-          ),
-          getItem(
-            <Link to={PATH_DASHBOARD.courses}>Курслар</Link>,
-            'courses',
-            <FolderOpenOutlined />
-          ),
-          getItem(
-            <Link to={PATH_DASHBOARD.topics}>Мавзулар</Link>,
-            'topics',
-            <ReadOutlined />
-          ),
-          getItem(
-            <Link to={PATH_DASHBOARD.videos}>Видеолар</Link>,
-            'videos',
-            <VideoCameraOutlined />
-          ),
-          getItem('Бошқалар', 'others', null, [
-            getItem(
-              <Link to={PATH_DASHBOARD.default}>Default</Link>,
-              'default',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.projects}>Projects</Link>,
-              'projects',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.ecommerce}>eCommerce</Link>,
-              'ecommerce',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.marketing}>Marketing</Link>,
-              'marketing',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.social}>Social</Link>,
-              'social',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.bidding}>Bidding</Link>,
-              'bidding',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.learning}>Learning</Link>,
-              'learning',
-              null
-            ),
-            getItem(
-              <Link to={PATH_DASHBOARD.logistics}>Logistics</Link>,
-              'logistics',
-              null
-            ),
-          ]),
-        ]),
-      !isUserProfilePage &&
-        getItem(
-          <Link to={PATH_ABOUT.root}>About</Link>,
-          'about',
-          <InfoCircleOutlined />
-        ),
-      !isUserProfilePage &&
-        getItem(
-          <Link to={PATH_SITEMAP.root}>Sitemap</Link>,
-          'sitemap',
-          <BranchesOutlined />
-        ),
-
-      getItem('Pages', 'pages', null, [], 'group'),
-
-      getItem('Corporate', 'corporate', <IdcardOutlined />, [
-        getItem(<Link to={PATH_CORPORATE.about}>About</Link>, 'about', null),
-        getItem(<Link to={PATH_CORPORATE.team}>Team</Link>, 'team', null),
-        getItem(<Link to={PATH_CORPORATE.faqs}>FAQ</Link>, 'faqs', null),
-        getItem(
-          <Link to={PATH_CORPORATE.contact}>Contact us</Link>,
-          'contact us',
-          null
-        ),
-        getItem(
-          <Link to={PATH_CORPORATE.pricing}>Pricing</Link>,
-          'pricing',
-          null
-        ),
-        getItem(
-          <Link to={PATH_CORPORATE.license}>License</Link>,
-          'license',
-          null
-        ),
-      ]),
-
-      !isDashboardPage &&
-        getItem('Профил', 'user-profile', <UserOutlined />, [
-          getItem(
-            <Link to={PATH_USER_PROFILE.details}>Деталлар</Link>,
-            'details',
-            null
-          ),
-          getItem(
-            <Link to={PATH_USER_PROFILE.preferences}>Афзалликлар</Link>,
-            'preferences',
-            null
-          ),
-          getItem(
-            <Link to={PATH_USER_PROFILE.personalInformation}>Маълумот</Link>,
-            'personal-information',
-            null
-          ),
-          getItem(
-            <Link to={PATH_USER_PROFILE.security}>Хавфсизлик</Link>,
-            'security',
-            null
-          ),
-          getItem(
-            <Link to={PATH_USER_PROFILE.activity}>Фаолият</Link>,
-            'activity',
-            null
-          ),
-          getItem(
-            <Link to={PATH_USER_PROFILE.action}>Ҳаракатлар</Link>,
-            'actions',
-            null
-          ),
-          getItem(<Link to={PATH_USER_PROFILE.help}>Ёрдам</Link>, 'help', null),
-          getItem(
-            <Link to={PATH_USER_PROFILE.feedback}>Фикр-мулоҳаза</Link>,
-            'feedback',
-            null
-          ),
-        ]),
-
-      getItem('Аутентификация', 'authentication', <SecurityScanOutlined />, [
-        getItem(<Link to={PATH_AUTH.signin}>Кириш</Link>, 'auth-signin', null),
-        getItem(
-          <Link to={PATH_AUTH.signup}>Рўйхатдан ўтиш</Link>,
-          'auth-signup',
-          null
-        ),
-        getItem(
-          <Link to={PATH_AUTH.welcome}>Welcome</Link>,
-          'auth-welcome',
-          null
-        ),
-        getItem(
-          <Link to={PATH_AUTH.verifyEmail}>Verify email</Link>,
-          'auth-verify',
-          null
-        ),
-        getItem(
-          <Link to={PATH_AUTH.passwordReset}>Паролни тиклаш</Link>,
-          'auth-password-reset',
-          null
-        ),
-        getItem(
-          <Link to={PATH_AUTH.accountDelete}>Аккаунтни ўчириш</Link>,
-          'auth-account-deactivation',
-          null
-        ),
-      ]),
-
-      !isUserProfilePage &&
-        getItem('Хатоликлар', 'errors', <BugOutlined />, [
-          getItem(<Link to={PATH_ERROR.error400}>400</Link>, '400', null),
-          getItem(<Link to={PATH_ERROR.error403}>403</Link>, '403', null),
-          getItem(<Link to={PATH_ERROR.error404}>404</Link>, '404', null),
-          getItem(<Link to={PATH_ERROR.error500}>500</Link>, '500', null),
-          getItem(<Link to={PATH_ERROR.error503}>503</Link>, '503', null),
-        ]),
-    ].filter(Boolean);
-  }, [isDashboardPage, isUserProfilePage]);
+  const items: MenuProps['items'] = useMemo(
+    () => [
+      createItem(
+        <Link to={PATH_DASHBOARD.users}>Foydalanuvchilar</Link>,
+        'users',
+        <TeamOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.courses}>Kurslar</Link>,
+        'courses',
+        <FolderOpenOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.topics}>Mavzular</Link>,
+        'topics',
+        <ReadOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.videos}>Videolar</Link>,
+        'videos',
+        <VideoCameraOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.tests}>Testlar</Link>,
+        'tests',
+        <QuestionCircleOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.monitoring}>Monitoring</Link>,
+        'monitoring',
+        <BarChartOutlined />
+      ),
+      createItem(
+        <Link to={PATH_DASHBOARD.groups}>Guruhlar</Link>,
+        'groups',
+        <GroupOutlined />
+      ),
+      // createItem(
+      //   <Link to={PATH_DASHBOARD.qrCode}>QR-kod</Link>,
+      //   'qrCode',
+      //   <QrcodeOutlined />
+      // ),
+      createItem(
+        <Link to={PATH_LANDING.root}>Saytga qaytish</Link>,
+        'landing',
+        <HomeOutlined />
+      ),
+    ],
+    []
+  );
 
   return (
-    <Sider ref={nodeRef} breakpoint="lg" collapsedWidth="0" {...others}>
-      <Logo
-        color="blue"
-        asLink
-        href={PATH_LANDING.root}
-        justify="center"
-        gap="small"
-        imgSize={{ h: 28, w: 28 }}
-        style={{ padding: '1rem 0' }}
-      />
+    <div
+      style={{
+        height: '100%',
+        borderRadius: 24,
+        background: '#ffffff',
+        border: '1px solid rgba(148,163,184,0.12)',
+        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          padding: collapsed ? '18px 14px' : '20px 18px 18px',
+          borderBottom: '1px solid rgba(148,163,184,0.12)',
+        }}
+      >
+        <Logo
+          color="blue"
+          asLink
+          href={PATH_LANDING.root}
+          justify={collapsed ? 'center' : 'flex-start'}
+          gap="small"
+          imgSize={{ h: collapsed ? 34 : 40 }}
+        />
+        {!collapsed ? (
+          <Space direction="vertical" size={6} style={{ marginTop: 14 }}>
+            <Tag
+              style={{
+                width: 'fit-content',
+                margin: 0,
+                borderRadius: 999,
+                padding: '4px 10px',
+                background: '#f8fafc',
+                color: '#475569',
+                border: '1px solid rgba(148,163,184,0.12)',
+              }}
+            >
+              Admin panel
+            </Tag>
+            <Title level={5} style={{ margin: 0, color: '#102a43' }}>
+              {user ? `${user.firstname} ${user.lastname}` : 'Administrator'}
+            </Title>
+            <Text style={{ color: '#64748b' }}>LMS boshqaruv markazi</Text>
+          </Space>
+        ) : null}
+      </div>
+
       <ConfigProvider
         theme={{
           components: {
             Menu: {
-              itemBg: 'none',
-              itemSelectedBg: COLOR['100'],
-              itemHoverBg: COLOR['50'],
-              itemSelectedColor: COLOR['600'],
+              itemBg: 'transparent',
+              itemSelectedBg: '#eef4ff',
+              itemHoverBg: '#f8fafc',
+              itemSelectedColor: '#1d4ed8',
+              itemColor: '#334155',
+              borderRadiusLG: 14,
+              itemMarginBlock: 4,
             },
           },
         }}
@@ -289,13 +194,43 @@ const SideNav = ({ ...others }: SideNavProps) => {
         <Menu
           mode="inline"
           items={items}
-          onClick={onClick}
-          openKeys={openKeys}
-          onOpenChange={onOpenChange}
           selectedKeys={[current]}
-          style={{ border: 'none' }}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            padding: '14px 12px 10px',
+            flex: 1,
+          }}
         />
       </ConfigProvider>
+
+      {!collapsed ? (
+        <div
+          style={{
+            margin: 14,
+            padding: 14,
+            borderRadius: 18,
+            background: '#f8fafc',
+            border: '1px solid rgba(148,163,184,0.12)',
+          }}
+        >
+          <Text style={{ color: '#64748b' }}>Holat</Text>
+          <Title level={5} style={{ margin: '4px 0', color: '#102a43' }}>
+            Barcha modullar tayyor
+          </Title>
+          <Text style={{ color: '#64748b' }}>
+            Kurslar, testlar va foydalanuvchilar shu yerdan boshqariladi.
+          </Text>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const SideNav = ({ collapsed, ...others }: SideNavProps) => {
+  return (
+    <Sider breakpoint="lg" theme="light" {...others}>
+      <AdminSideNavContent collapsed={collapsed} />
     </Sider>
   );
 };

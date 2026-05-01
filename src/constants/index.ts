@@ -1,65 +1,94 @@
 import {
-  PATH_CALENDAR,
-  PATH_INBOX,
+  PATH_ABOUT,
   PATH_ACCOUNT,
   PATH_AUTH,
   PATH_BLOG,
+  PATH_CALENDAR,
   PATH_CAREERS,
   PATH_CHANGELOG,
   PATH_CONTACTS,
-  PATH_CORPORATE,
+  PATH_COURSE,
   PATH_DASHBOARD,
   PATH_DOCS,
   PATH_ERROR,
   PATH_FILE,
   PATH_GITHUB,
+  PATH_INBOX,
   PATH_INVOICE,
+  PATH_LANDING,
   PATH_LAYOUT,
   PATH_PROJECTS,
   PATH_SOCIAL,
+  PATH_SOCIALS,
   PATH_START,
   PATH_SUBSCRIPTION,
   PATH_USER_MGMT,
   PATH_USER_PROFILE,
-  PATH_LANDING,
-  PATH_SITEMAP,
-  PATH_SOCIALS,
-  PATH_ABOUT,
 } from './routes.ts';
 
 const DASHBOARD_ITEMS = [
   { title: 'Фойдаланувчилар', path: PATH_DASHBOARD.users },
+  { title: 'QR-код', path: PATH_DASHBOARD.qrCode },
   { title: 'Курслар', path: PATH_DASHBOARD.courses },
   { title: 'Мавзулар', path: PATH_DASHBOARD.topics },
   { title: 'Видеолар', path: PATH_DASHBOARD.topics },
-  { title: 'default', path: PATH_DASHBOARD.default },
-  { title: 'projects', path: PATH_DASHBOARD.projects },
-  { title: 'ecommerce', path: PATH_DASHBOARD.ecommerce },
-  { title: 'marketing', path: PATH_DASHBOARD.marketing },
-  { title: 'social', path: PATH_DASHBOARD.social },
-  { title: 'bidding', path: PATH_DASHBOARD.bidding },
-  { title: 'learning', path: PATH_DASHBOARD.learning },
-  { title: 'logistics', path: PATH_DASHBOARD.logistics },
-];
-
-const CORPORATE_ITEMS = [
-  { title: 'about', path: PATH_CORPORATE.about },
-  { title: 'team', path: PATH_CORPORATE.team },
-  { title: 'faq', path: PATH_CORPORATE.faqs },
-  { title: 'contact us', path: PATH_CORPORATE.contact },
-  { title: 'pricing', path: PATH_CORPORATE.pricing },
-  { title: 'license', path: PATH_CORPORATE.license },
 ];
 
 const USER_PROFILE_ITEMS = [
-  {label:'деталлар', title: 'details', path: PATH_USER_PROFILE.details },
-  {label:'афзалликлар', title: 'preferences', path: PATH_USER_PROFILE.preferences },
-  {label:'маълумот', title: 'information', path: PATH_USER_PROFILE.personalInformation },
-  {label:'хавфсизлик', title: 'security', path: PATH_USER_PROFILE.security },
-  {label:'фаолият', title: 'activity', path: PATH_USER_PROFILE.activity },
-  {label:'ҳаракатлар', title: 'actions', path: PATH_USER_PROFILE.action },
-  {label:'ёрдам', title: 'help', path: PATH_USER_PROFILE.help },
-  {label:'фикр-мулоҳаза', title: 'feedback', path: PATH_USER_PROFILE.feedback },
+  {
+    label: 'Ma’lumotlar',
+    title: 'details',
+    path: PATH_USER_PROFILE.details,
+    disabled: false,
+  },
+  {
+    label: 'Xavfsizlik',
+    title: 'security',
+    path: PATH_USER_PROFILE.security,
+    disabled: false,
+  },
+  {
+    label: 'Mening o‘qishlarim',
+    title: 'my-learning',
+    path: PATH_USER_PROFILE.myLearning,
+    disabled: false,
+  },
+  {
+    label: 'Afzalliklar',
+    title: 'preferences',
+    path: PATH_USER_PROFILE.preferences,
+    disabled: true,
+  },
+  {
+    label: 'Shaxsiy ma’lumot',
+    title: 'information',
+    path: PATH_USER_PROFILE.personalInformation,
+    disabled: true,
+  },
+  {
+    label: 'Faoliyat',
+    title: 'activity',
+    path: PATH_USER_PROFILE.activity,
+    disabled: true,
+  },
+  {
+    label: 'Harakatlar',
+    title: 'actions',
+    path: PATH_USER_PROFILE.action,
+    disabled: true,
+  },
+  {
+    label: 'Yordam',
+    title: 'help',
+    path: PATH_USER_PROFILE.help,
+    disabled: true,
+  },
+  {
+    label: 'Fikr-mulohaza',
+    title: 'feedback',
+    path: PATH_USER_PROFILE.feedback,
+    disabled: true,
+  },
 ];
 
 const AUTHENTICATION_ITEMS = [
@@ -79,7 +108,7 @@ const ERROR_ITEMS = [
   { title: '503', path: PATH_ERROR.error503 },
 ];
 
-const API_URL = 'http://localhost:8080/api/v1';
+const API_URL = '/api/v1';
 
 export {
   PATH_CALENDAR,
@@ -87,9 +116,9 @@ export {
   PATH_INBOX,
   PATH_PROJECTS,
   PATH_LAYOUT,
-  PATH_CORPORATE,
   PATH_CONTACTS,
   PATH_DASHBOARD,
+  PATH_COURSE,
   PATH_CHANGELOG,
   PATH_CAREERS,
   PATH_ACCOUNT,
@@ -105,13 +134,11 @@ export {
   PATH_SOCIAL,
   PATH_START,
   PATH_LANDING,
-  PATH_SITEMAP,
   DASHBOARD_ITEMS,
-  CORPORATE_ITEMS,
   USER_PROFILE_ITEMS,
   PATH_SOCIALS,
   AUTHENTICATION_ITEMS,
   ERROR_ITEMS,
   PATH_ABOUT,
-  API_URL
+  API_URL,
 };

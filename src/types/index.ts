@@ -1,35 +1,35 @@
 import type {
-  Projects,
   ProjectCategory,
-  ProjectStatus,
   ProjectPriority,
+  Projects,
+  ProjectStatus,
 } from './projects';
 import type { Clients } from './clients';
 import type { CampaignAds } from './campaigns';
-import type { PostPlatform, Posts, PostCategory } from './posts';
+import type { PostCategory, PostPlatform, Posts } from './posts';
 import type {
-  CommentsType,
   CommentGender,
-  CommentsPlatform,
   Comments,
+  CommentsPlatform,
+  CommentsType,
 } from './comments';
 import type {
-  Bidding,
   AuctionCreator,
   AuctionSales,
   AuctionTransactions,
+  Bidding,
 } from './bidding';
 import type {
+  CommunityGroup,
+  Exam,
   LearningCourses,
   RecommendedCourses,
-  Exam,
-  CommunityGroup,
 } from './learnings.ts';
 import type {
-  TruckDelivery,
   DeliveryAnalytics,
-  Truck,
   DeliveryRequest,
+  Truck,
+  TruckDelivery,
 } from './logistics.ts';
 import type { Tasks } from './dashboard';
 import type { Notifications } from './notifications';
@@ -38,7 +38,7 @@ import type { Faq } from './faq';
 import type { Pricing } from './pricing';
 import type { Session } from './session';
 import type { ActivityTimeline } from './timeline';
-import type {JError} from './response.ts';
+import type { JError } from './response.ts';
 
 export type {
   Projects,
@@ -73,5 +73,5 @@ export type {
   Pricing,
   Session,
   ActivityTimeline,
-  JError
+  JError,
 };
