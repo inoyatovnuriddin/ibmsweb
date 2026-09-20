@@ -1,96 +1,111 @@
-import { Button, Col, Flex, Form, Input, Rate, Row, Typography } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
-import { Card } from '../../components';
 import { useState } from 'react';
+import { Button, Form, Input, message, Rate, Select, Space, theme, Typography } from 'antd';
+import { MessageOutlined, SendOutlined } from '@ant-design/icons';
+import { useSelector } from 'react-redux';
+import { Card } from '../../components';
+import type { RootState } from '../../redux/store.ts';
+import { submitPublicContactRequest } from '../../services/publicContact.ts';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
-const RATING_DESC = ['terrible', 'bad', 'average', 'very good', 'wonderful'];
-
-type FieldType = {
-  rating?: number;
-  comment?: string;
+type FeedbackForm = {
+  rating: number;
+  category: string;
+  message: string;
 };
 
+const CATEGORIES = [
+  'Platforma qulayligi',
+  'Kurs sifati',
+  'Texnik muammo',
+  'Taklif',
+  'Boshqa',
+];
+
 export const UserProfileFeedbackPage = () => {
-  const [value, setValue] = useState(3);
+  const {
+    token: { colorText, colorTextSecondary },
+  } = theme.useToken();
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const [form] = Form.useForm<FeedbackForm>();
+  const [submitting, setSubmitting] = useState(false);
 
-  const onFinish = (values: any) => {
-    console.log('Success:', values);
-  };
+  const onSubmit = async (values: FeedbackForm) => {
+    setSubmitting(true);
+    try {
+      const composed = [
+        `Baho: ${values.rating}/5`,
+        `Yoʻnalish: ${values.category}`,
+        '',
+        values.message.trim(),
+      ].join('\n');
 
-  const onFinishFailed = (errorInfo: any) => {
-    console.log('Failed:', errorInfo);
+      await submitPublicContactRequest({
+        fullName:
+          [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') ||
+          'Foydalanuvchi',
+        phoneNumber: currentUser?.phoneNumber || '',
+        message: composed,
+        sourcePage: 'profile-feedback',
+        formSessionId: `feedback-${currentUser?.id || 'anon'}-${Date.now()}`,
+      });
+      message.success('Fikringiz uchun rahmat! Baholaringiz qabul qilindi.');
+      form.resetFields();
+    } catch {
+      message.error('Yuborishda xatolik yuz berdi');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div>
-      <Card title="Feedback form" style={{ width: '50%' }}>
-        <Flex vertical gap="middle">
-          <Text>
-            Your input is valuable in helping us better understand your needs
-            and tailor our service accordingly
-          </Text>
-          <Form
-            name="user-profile-address-form"
-            layout="vertical"
-            initialValues={{
-              rating: 0,
-              comment: '',
-            }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="on"
-            requiredMark={false}
-          >
-            <Row gutter={[16, 0]}>
-              <Col span={24}>
-                <Form.Item<FieldType>
-                  label=""
-                  name="rating"
-                  rules={[
-                    { required: true, message: 'Please enter your ratings!' },
-                  ]}
-                >
-                  <Flex>
-                    <Rate
-                      tooltips={RATING_DESC}
-                      onChange={setValue}
-                      value={value}
-                      allowClear
-                      allowHalf
-                    />
-                    {value ? (
-                      <span className="ant-rate-text">
-                        {RATING_DESC[Math.round(value) - 1]}
-                      </span>
-                    ) : (
-                      ''
-                    )}
-                  </Flex>
-                </Form.Item>
-              </Col>
-              <Col span={24}>
-                <Form.Item<FieldType>
-                  label="Comment"
-                  name="comment"
-                  rules={[
-                    { required: true, message: 'Please enter your comment!' },
-                  ]}
-                >
-                  <Input.TextArea />
-                </Form.Item>
-              </Col>
-            </Row>
+    <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+      <Space align="center" size={12} style={{ marginBottom: 4 }}>
+        <MessageOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+        <Title level={4} style={{ margin: 0, color: colorText }}>
+          Fikr-mulohaza
+        </Title>
+      </Space>
+      <Text style={{ color: colorTextSecondary }}>
+        Platformani yaxshilashimizga yordam bering. Har bir fikr biz uchun qimmatli.
+      </Text>
 
-            <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<SendOutlined />}>
-                Submit now
-              </Button>
-            </Form.Item>
-          </Form>
-        </Flex>
-      </Card>
-    </div>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onSubmit}
+        style={{ marginTop: 18, maxWidth: 620 }}
+        initialValues={{ rating: 5, category: CATEGORIES[0] }}
+      >
+        <Form.Item
+          name="rating"
+          label="Umumiy bahoyingiz"
+          rules={[{ required: true, message: 'Baho bering' }]}
+        >
+          <Rate style={{ fontSize: 28 }} />
+        </Form.Item>
+
+        <Form.Item name="category" label="Yoʻnalish">
+          <Select options={CATEGORIES.map((c) => ({ value: c, label: c }))} />
+        </Form.Item>
+
+        <Form.Item
+          name="message"
+          label="Fikringiz"
+          rules={[
+            { required: true, message: 'Fikringizni yozing' },
+            { min: 10, message: 'Kamida 10 ta belgi' },
+          ]}
+        >
+          <Input.TextArea rows={5} placeholder="Nima yoqdi, nimani yaxshilash kerak?" />
+        </Form.Item>
+
+        <div style={{ textAlign: 'right' }}>
+          <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={submitting}>
+            Yuborish
+          </Button>
+        </div>
+      </Form>
+    </Card>
   );
 };

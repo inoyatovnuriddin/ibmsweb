@@ -1,5 +1,7 @@
 import { ReactNode } from 'react';
-import { Card, Col, Row, Space, Tag, Typography } from 'antd';
+import { Card, Col, Row, Space, Tag, theme, Typography } from 'antd';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../redux/store.ts';
 
 const { Title, Paragraph } = Typography;
 
@@ -12,7 +14,7 @@ type AdminPageFrameProps = {
 };
 
 type AdminSectionCardProps = {
-  title?: string;
+  title?: ReactNode;
   extra?: ReactNode;
   children: ReactNode;
 };
@@ -21,22 +23,25 @@ export const ADMIN_MODAL_STYLES = {
   content: {
     borderRadius: 24,
     overflow: 'hidden',
-    boxShadow: '0 28px 60px rgba(15, 23, 42, 0.16)',
+    boxShadow: 'var(--color-shadow-elevated)',
+    background: 'var(--color-bg-elevated)',
+    border: '1px solid var(--color-border)',
   },
   header: {
     padding: '20px 24px 14px',
-    borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
-    background:
-      'linear-gradient(135deg, rgba(255,252,247,0.98) 0%, rgba(246,250,255,0.98) 100%)',
+    borderBottom: '1px solid var(--color-border)',
+    background: 'var(--admin-modal-header-bg)',
   },
   body: {
     padding: '22px 24px 24px',
     maxHeight: 'calc(100vh - 220px)',
     overflowY: 'auto' as const,
+    background: 'var(--color-bg-elevated)',
   },
   footer: {
     padding: '14px 24px 24px',
-    borderTop: '1px solid rgba(148, 163, 184, 0.12)',
+    borderTop: '1px solid var(--color-border)',
+    background: 'var(--color-bg-elevated)',
   },
 };
 
@@ -47,16 +52,21 @@ export const AdminPageFrame = ({
   actions,
   children,
 }: AdminPageFrameProps) => {
+  const { token } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+
   return (
     <Space direction="vertical" size={24} style={{ width: '100%' }}>
       <Card
         style={{
           borderRadius: 24,
-          border: '1px solid rgba(148, 163, 184, 0.14)',
+          border: `1px solid ${token.colorBorderSecondary}`,
           overflow: 'hidden',
-          boxShadow: '0 18px 40px rgba(15, 23, 42, 0.05)',
+          boxShadow: 'var(--color-shadow-soft)',
           background:
-            'linear-gradient(135deg, rgba(255,252,247,0.98) 0%, rgba(246,250,255,0.98) 100%)',
+            mytheme === 'dark'
+              ? token.colorBgElevated
+              : 'linear-gradient(135deg, rgba(255,252,247,0.98) 0%, rgba(246,250,255,0.98) 100%)',
         }}
         bodyStyle={{ padding: 22 }}
       >
@@ -70,9 +80,9 @@ export const AdminPageFrame = ({
                     margin: 0,
                     borderRadius: 999,
                     padding: '6px 12px',
-                    background: '#ffffff',
-                    border: '1px solid rgba(29, 78, 216, 0.12)',
-                    color: '#1d4ed8',
+                    background: mytheme === 'dark' ? 'rgba(37,99,235,0.18)' : '#ffffff',
+                    border: '1px solid rgba(29, 78, 216, 0.18)',
+                    color: mytheme === 'dark' ? '#93c5fd' : '#1d4ed8',
                   }}
                 >
                   {eyebrow}
@@ -83,7 +93,7 @@ export const AdminPageFrame = ({
                   level={2}
                   style={{
                     margin: 0,
-                    color: '#102a43',
+                    color: token.colorText,
                     letterSpacing: '-0.02em',
                   }}
                 >
@@ -93,7 +103,7 @@ export const AdminPageFrame = ({
                   <Paragraph
                     style={{
                       margin: '8px 0 0',
-                      color: '#486581',
+                      color: token.colorTextSecondary,
                       maxWidth: 760,
                     }}
                   >
@@ -111,7 +121,6 @@ export const AdminPageFrame = ({
             </Col>
           ) : null}
         </Row>
-
       </Card>
 
       {children}
@@ -124,12 +133,14 @@ export const AdminSectionCard = ({
   extra,
   children,
 }: AdminSectionCardProps) => {
+  const { token } = theme.useToken();
+
   return (
     <Card
       style={{
         borderRadius: 24,
-        border: '1px solid rgba(148, 163, 184, 0.14)',
-        boxShadow: '0 16px 36px rgba(15, 23, 42, 0.05)',
+        border: `1px solid ${token.colorBorderSecondary}`,
+        boxShadow: 'var(--color-shadow-soft)',
       }}
       bodyStyle={{ padding: 20 }}
     >
@@ -146,7 +157,7 @@ export const AdminSectionCard = ({
         >
           {title ? (
             <div>
-              <Title level={4} style={{ margin: 0 }}>
+              <Title level={4} style={{ margin: 0, color: token.colorText }}>
                 {title}
               </Title>
             </div>

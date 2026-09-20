@@ -37,11 +37,14 @@ export const PATH_DASHBOARD = {
   courses: path(ROOTS_DASHBOARD, '/courses'),
   users: path(ROOTS_DASHBOARD, '/users'),
   monitoring: path(ROOTS_DASHBOARD, '/monitoring'),
-  groups: '/admin/groups',
+  publicContactRequests: path(ROOTS_DASHBOARD, '/contact-requests'),
+  groups: path(ROOTS_DASHBOARD, '/groups'),
   qrCode: path(ROOTS_DASHBOARD, '/qrCode'),
+  certificates: path(ROOTS_DASHBOARD, '/certificates'),
   topics: path(ROOTS_DASHBOARD, '/topics'),
   videos: path(ROOTS_DASHBOARD, '/videos'),
   tests: path(ROOTS_DASHBOARD, '/tests'),
+  roles: path(ROOTS_DASHBOARD, '/roles'),
 };
 
 export const PATH_COURSE = {

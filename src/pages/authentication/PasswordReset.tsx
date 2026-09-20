@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Col,
   Flex,
@@ -15,7 +14,10 @@ import { useMediaQuery } from 'react-responsive';
 import { PATH_AUTH, PATH_LANDING } from '../../constants';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { requestPasswordReset } from '../../redux/auth/authApi.ts';
+import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Title, Text } = Typography;
 
@@ -41,13 +43,26 @@ const getReadableResetError = (error: unknown) => {
 
 export const PasswordResetPage = () => {
   const {
-    token: { colorPrimary },
+    token: {
+      colorPrimary,
+      colorBgContainer,
+      colorBgElevated,
+      colorBorderSecondary,
+      colorTextSecondary,
+      colorFillTertiary,
+    },
   } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { t } = useAppTranslation();
   const isMobile = useMediaQuery({ maxWidth: 769 });
+  const isDark = mytheme === 'dark';
   const navigate = useNavigate();
   const [form] = Form.useForm<FieldType>();
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
+  const pageBackground = isDark
+    ? 'radial-gradient(circle at top, rgba(37,99,235,0.18) 0%, transparent 34%), var(--home-bg)'
+    : 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)';
 
   const onFinish = async (values: FieldType) => {
     setLoading(true);
@@ -78,7 +93,7 @@ export const PasswordResetPage = () => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)',
+        background: pageBackground,
         padding: isMobile ? '20px 12px' : '32px 20px',
         display: 'flex',
         alignItems: 'center',
@@ -90,11 +105,11 @@ export const PasswordResetPage = () => {
         style={{
           width: '100%',
           maxWidth: 1120,
-          background: '#ffffff',
+          background: colorBgContainer,
           borderRadius: 30,
           overflow: 'hidden',
-          border: '1px solid rgba(148,163,184,0.14)',
-          boxShadow: '0 28px 80px rgba(15,23,42,0.08)',
+          border: `1px solid ${colorBorderSecondary}`,
+          boxShadow: 'var(--color-shadow-elevated)',
         }}
       >
         <Row gutter={0}>
@@ -117,13 +132,13 @@ export const PasswordResetPage = () => {
                 className="text-white"
                 style={{ marginBottom: 12, letterSpacing: '-0.02em' }}
               >
-                Parolni tiklash
+                {t('auth.reset.title')}
               </Title>
               <Text
                 className="text-white"
                 style={{ fontSize: isMobile ? 16 : 18, maxWidth: 360, lineHeight: 1.6 }}
               >
-                Hisobingizga qayta kirish uchun email manzilingizga tiklash havolasini yuboramiz.
+                {t('auth.reset.subtitle')}
               </Text>
             </Flex>
           </Col>
@@ -144,10 +159,10 @@ export const PasswordResetPage = () => {
                     letterSpacing: '-0.02em',
                   }}
                 >
-                  Parolni unutdingizmi?
+                  {t('auth.reset.heading')}
                 </Title>
-                <Text style={{ display: 'block', color: '#52606d', fontSize: 16, marginTop: 10, lineHeight: 1.7 }}>
-                  Ro‘yxatdan o‘tgan email manzilingizni kiriting. Tiklash havolasi shu manzilga yuboriladi.
+                <Text style={{ display: 'block', color: colorTextSecondary, fontSize: 16, marginTop: 10, lineHeight: 1.7 }}>
+                  {t('auth.reset.description')}
                 </Text>
               </div>
 
@@ -159,35 +174,27 @@ export const PasswordResetPage = () => {
                 style={{
                   padding: '12px 16px',
                   borderRadius: 18,
-                  border: '1px solid rgba(191, 219, 254, 0.9)',
-                  background: '#f8fbff',
+                  border: `1px solid ${colorBorderSecondary}`,
+                  background: colorFillTertiary,
                 }}
               >
-                <Text style={{ color: '#52606d', fontSize: 15 }}>Parol esingizga tushdimi?</Text>
+                <Text style={{ color: colorTextSecondary, fontSize: 15 }}>{t('auth.reset.remembered')}</Text>
                 <Link
                   to={PATH_AUTH.signin}
                   style={{
-                    color: '#2563eb',
+                    color: colorPrimary,
                     fontWeight: 700,
                     fontSize: 16,
                     padding: '8px 14px',
                     borderRadius: 999,
-                    background: '#ffffff',
-                    boxShadow: '0 8px 18px rgba(37,99,235,0.08)',
+                    background: colorBgElevated,
+                    boxShadow: 'var(--color-shadow-soft)',
                   }}
                 >
-                  Tizimga kirish
+                  {t('auth.signIn.submit')}
                 </Link>
               </Flex>
-
-              <Alert
-                type="info"
-                showIcon
-                style={{ borderRadius: 16 }}
-                message="Email manzilingiz to‘g‘ri kiritilganiga ishonch hosil qiling"
-                description="Agar bunday akkaunt mavjud bo‘lsa, tizim sizga parolni tiklash uchun havola yuboradi."
-              />
-
+              
               <Form<FieldType>
                 form={form}
                 name="password-reset-form"
@@ -198,11 +205,11 @@ export const PasswordResetPage = () => {
                 style={{ width: '100%' }}
               >
                 <Form.Item<FieldType>
-                  label="Elektron pochta"
+                  label={t('auth.form.email')}
                   name="email"
                   rules={[
-                    { required: true, message: 'Email manzilini kiriting' },
-                    { type: 'email', message: 'Email formatini tekshiring' },
+                    { required: true, message: t('auth.validation.emailRequired') },
+                    { type: 'email', message: t('auth.validation.emailInvalid') },
                   ]}
                 >
                   <Input
@@ -222,14 +229,14 @@ export const PasswordResetPage = () => {
                       loading={loading}
                       style={{ minWidth: isMobile ? '100%' : 210 }}
                     >
-                      Tiklash havolasini yuborish
+                      {t('auth.reset.send')}
                     </Button>
                     <Button
                       size="large"
                       style={{ minWidth: isMobile ? '100%' : 140 }}
                       onClick={() => navigate(PATH_AUTH.signin)}
                     >
-                      Bekor qilish
+                      {t('auth.reset.cancel')}
                     </Button>
                   </Flex>
                 </Form.Item>

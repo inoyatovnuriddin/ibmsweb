@@ -1,154 +1,161 @@
+import { useState } from 'react';
+import { Divider, Flex, Segmented, Space, Switch, theme, Typography } from 'antd';
 import {
-  Button,
-  ButtonProps,
-  Card as AntdCard,
-  Col,
-  Flex,
-  Row,
-  Switch,
-  Typography,
-} from 'antd';
+  BellOutlined,
+  BgColorsOutlined,
+  GlobalOutlined,
+  MoonOutlined,
+  SunOutlined,
+} from '@ant-design/icons';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card } from '../../components';
-import { useStylesContext } from '../../context';
-import { useMediaQuery } from 'react-responsive';
+import type { RootState } from '../../redux/store.ts';
+import { toggleTheme } from '../../redux/theme/themeSlice.ts';
+import { setLanguage } from '../../redux/language/languageSlice.ts';
+import { LANGUAGE_OPTIONS, saveAppLanguage, type AppLanguage } from '../../i18n';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
-const BUTTON_PROPS: ButtonProps = {
-  type: 'dashed',
+const NOTIF_STORAGE_KEY = 'ibms_notification_prefs';
+
+type NotificationPrefs = {
+  courseUpdates: boolean;
+  testResults: boolean;
+  certificates: boolean;
+  email: boolean;
+};
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  courseUpdates: true,
+  testResults: true,
+  certificates: true,
+  email: false,
+};
+
+const readPrefs = (): NotificationPrefs => {
+  try {
+    const raw = localStorage.getItem(NOTIF_STORAGE_KEY);
+    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+  } catch {
+    return DEFAULT_PREFS;
+  }
 };
 
 export const UserProfilePreferencesPage = () => {
-  const context = useStylesContext();
-  const isMobile = useMediaQuery({ maxWidth: 600 });
+  const {
+    token: { colorText, colorTextSecondary, colorBorderSecondary },
+  } = theme.useToken();
+  const dispatch = useDispatch();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { language } = useAppTranslation();
+  const [prefs, setPrefs] = useState<NotificationPrefs>(readPrefs);
 
-  const notificationsOnChange = (checked: boolean) => {
-    console.log(`switch to ${checked}`);
+  const isDark = mytheme === 'dark';
+
+  const changeLanguage = (value: AppLanguage) => {
+    dispatch(setLanguage(value));
+    saveAppLanguage(value);
   };
 
+  const updatePref = (key: keyof NotificationPrefs, value: boolean) => {
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const notificationRows: Array<{
+    key: keyof NotificationPrefs;
+    title: string;
+    desc: string;
+  }> = [
+    { key: 'courseUpdates', title: 'Kurs yangiliklari', desc: 'Yangi darslar va materiallar qoʻshilganda xabar berish' },
+    { key: 'testResults', title: 'Test natijalari', desc: 'Test yakunlangach natija haqida bildirishnoma' },
+    { key: 'certificates', title: 'Sertifikatlar', desc: 'Sertifikat tayyor boʻlganda ogohlantirish' },
+    { key: 'email', title: 'Email orqali xabar', desc: 'Muhim xabarlarni elektron pochtaga yuborish' },
+  ];
+
   return (
-    <Flex vertical gap="middle">
-      <Card title="language info">
-        <Flex vertical gap="small">
-          <Flex
-            vertical={isMobile}
-            align={isMobile ? 'flex-start' : 'center'}
-            gap={4}
-          >
-            <Text style={{ width: 200 }}>Display Language</Text>
-            <Button {...BUTTON_PROPS}>English (Unites States)</Button>
-          </Flex>
-          <Flex
-            vertical={isMobile}
-            align={isMobile ? 'flex-start' : 'center'}
-            gap={4}
-          >
-            <Text style={{ width: 200 }}>Preferred Language</Text>
-            <Button {...BUTTON_PROPS}>--Add your preferred language--</Button>
-          </Flex>
-          <Flex
-            vertical={isMobile}
-            align={isMobile ? 'flex-start' : 'center'}
-            gap={4}
-          >
-            <Text style={{ width: 200 }}>Regional Format</Text>
-            <Button {...BUTTON_PROPS}>
-              English (Kenya) - {new Date().toLocaleDateString()} :{' '}
-              {new Date().toLocaleTimeString()}
-            </Button>
-          </Flex>
+    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Space align="center" size={12} style={{ marginBottom: 4 }}>
+          <BgColorsOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+          <Title level={4} style={{ margin: 0, color: colorText }}>
+            Koʻrinish
+          </Title>
+        </Space>
+        <Text style={{ color: colorTextSecondary }}>
+          Interfeys mavzusi va tilini oʻzingizga qulay tarzda sozlang.
+        </Text>
+
+        <Divider />
+
+        <Flex align="center" justify="space-between" gap={16} wrap="wrap">
+          <Space direction="vertical" size={0}>
+            <Text strong style={{ color: colorText }}>
+              Mavzu
+            </Text>
+            <Text style={{ color: colorTextSecondary }}>Yorugʻ yoki tungi rejim</Text>
+          </Space>
+          <Segmented
+            value={isDark ? 'dark' : 'light'}
+            onChange={(v) => {
+              if ((v === 'dark') !== isDark) dispatch(toggleTheme());
+            }}
+            options={[
+              { label: 'Yorugʻ', value: 'light', icon: <SunOutlined /> },
+              { label: 'Tungi', value: 'dark', icon: <MoonOutlined /> },
+            ]}
+          />
+        </Flex>
+
+        <Divider style={{ borderColor: colorBorderSecondary }} />
+
+        <Flex align="center" justify="space-between" gap={16} wrap="wrap">
+          <Space direction="vertical" size={0}>
+            <Text strong style={{ color: colorText }}>
+              <GlobalOutlined /> Til
+            </Text>
+            <Text style={{ color: colorTextSecondary }}>Interfeys tili</Text>
+          </Space>
+          <Segmented
+            value={language}
+            onChange={(v) => changeLanguage(v as AppLanguage)}
+            options={LANGUAGE_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+          />
         </Flex>
       </Card>
-      <Card title="manage notifications">
-        <Row {...context?.rowProps}>
-          <Col sm={24} lg={12}>
-            <AntdCard title="activities" style={{ marginBottom: '1rem' }}>
-              <Flex vertical gap="middle">
-                <Flex align="center" justify="space-between">
-                  <Text>Someone comments on my content</Text>
-                  <Switch
-                    defaultChecked={false}
-                    onChange={notificationsOnChange}
-                  />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Text>Someone mentions my profile</Text>
-                  <Switch defaultChecked onChange={notificationsOnChange} />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Text>I received a like on my content</Text>
-                  <Switch onChange={notificationsOnChange} />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Text>Anyone follows me</Text>
-                  <Switch
-                    defaultChecked={false}
-                    onChange={notificationsOnChange}
-                  />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Text>I received a message</Text>
-                  <Switch defaultChecked onChange={notificationsOnChange} />
-                </Flex>
-              </Flex>
-            </AntdCard>
-          </Col>
-          <Col sm={24} lg={12}>
-            <AntdCard title="newsletters">
-              <Flex vertical gap="middle">
-                <Flex align="center" justify="space-between">
-                  <Flex vertical align="flex-start" gap={4}>
-                    <Text>General newsletter</Text>
-                    <Text type="secondary">
-                      News, announcements & product updates
-                    </Text>
-                  </Flex>
-                  <Switch
-                    defaultChecked={false}
-                    onChange={notificationsOnChange}
-                  />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Flex vertical align="flex-start" gap={4}>
-                    <Text>Weekly activity report</Text>
-                    <Text type="secondary">
-                      Weekly digest of top content & media
-                    </Text>
-                  </Flex>
-                  <Switch defaultChecked onChange={notificationsOnChange} />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Flex vertical align="flex-start" gap={4}>
-                    <Text>Weekly jobs</Text>
-                    <Text type="secondary">
-                      Weekly board of the newest jobs
-                    </Text>
-                  </Flex>
-                  <Switch onChange={notificationsOnChange} />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Flex vertical align="flex-start" gap={4}>
-                    <Text>Monthly webinars</Text>
-                    <Text type="secondary">
-                      Schedule of upcoming webinars & archive
-                    </Text>
-                  </Flex>
-                  <Switch onChange={notificationsOnChange} />
-                </Flex>
-                <Flex align="center" justify="space-between">
-                  <Flex vertical align="flex-start" gap={4}>
-                    <Text>Weekly blog posts</Text>
-                    <Text type="secondary">
-                      Weekly feed of the most popular blog posts
-                    </Text>
-                  </Flex>
-                  <Switch defaultChecked onChange={notificationsOnChange} />
-                </Flex>
-              </Flex>
-            </AntdCard>
-          </Col>
-        </Row>
+
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Space align="center" size={12} style={{ marginBottom: 4 }}>
+          <BellOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+          <Title level={4} style={{ margin: 0, color: colorText }}>
+            Bildirishnomalar
+          </Title>
+        </Space>
+        <Text style={{ color: colorTextSecondary }}>
+          Qaysi hodisalar haqida xabardor boʻlishni xohlaysiz.
+        </Text>
+
+        <Divider />
+
+        <Space direction="vertical" size={18} style={{ width: '100%' }}>
+          {notificationRows.map((row) => (
+            <Flex key={row.key} align="center" justify="space-between" gap={16}>
+              <Space direction="vertical" size={0} style={{ minWidth: 0 }}>
+                <Text strong style={{ color: colorText }}>
+                  {row.title}
+                </Text>
+                <Text style={{ color: colorTextSecondary, fontSize: 13 }}>{row.desc}</Text>
+              </Space>
+              <Switch
+                checked={prefs[row.key]}
+                onChange={(checked) => updatePref(row.key, checked)}
+              />
+            </Flex>
+          ))}
+        </Space>
       </Card>
-    </Flex>
+    </Space>
   );
 };

@@ -1,14 +1,16 @@
-import { Button, Space, Spin } from 'antd';
+import { Button, Space, Spin, theme } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import { FcGoogle } from 'react-icons/fc';
-import { RiTelegram2Fill } from 'react-icons/ri';
 import { useMediaQuery } from 'react-responsive';
+import type { ReactNode } from 'react';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 type AuthProviderButtonsProps = {
   googleLabel: string;
   googleLoading?: boolean;
   onGoogleClick: () => void;
   fullWidth?: boolean;
+  telegramContent?: ReactNode;
 };
 
 const iconWrapStyle = {
@@ -23,9 +25,6 @@ const providerButtonBase = {
   width: '100%',
   height: 60,
   borderRadius: 999,
-  border: '1px solid rgba(37, 99, 235, 0.18)',
-  background: '#ffffff',
-  boxShadow: '0 14px 30px rgba(15, 23, 42, 0.06)',
   paddingInline: 22,
 };
 
@@ -36,7 +35,7 @@ const providerContentStyle = {
   alignItems: 'center',
   fontSize: 18,
   fontWeight: 600,
-  color: '#102a43',
+  color: 'currentColor',
   lineHeight: 1.2,
   columnGap: 12,
 };
@@ -46,11 +45,16 @@ export const AuthProviderButtons = ({
   googleLoading = false,
   onGoogleClick,
   fullWidth = true,
+  telegramContent,
 }: AuthProviderButtonsProps) => {
+  const { t } = useAppTranslation();
+  const {
+    token: { colorBgElevated, colorBorderSecondary, colorPrimary, colorText },
+  } = theme.useToken();
   const isMobile = useMediaQuery({ maxWidth: 576 });
   const googleIndicator = (
     <Spin
-      indicator={<LoadingOutlined spin style={{ color: '#2563eb', fontSize: 18 }} />}
+      indicator={<LoadingOutlined spin style={{ color: colorPrimary, fontSize: 18 }} />}
       size="small"
     />
   );
@@ -66,52 +70,29 @@ export const AuthProviderButtons = ({
         style={{
           ...providerButtonBase,
           height: isMobile ? 56 : 60,
+          background: colorBgElevated,
+          border: `1px solid ${colorBorderSecondary}`,
+          boxShadow: 'var(--color-shadow-soft)',
         }}
       >
         <span
           style={{
             ...providerContentStyle,
             fontSize: isMobile ? 16 : 18,
+            color: colorText,
           }}
         >
           <span style={iconWrapStyle}>
             {googleLoading ? googleIndicator : <FcGoogle size={26} />}
           </span>
           <span style={{ textAlign: 'center' }}>
-            {googleLoading ? 'Yo‘naltirilmoqda...' : googleLabel}
+            {googleLoading ? t('common.redirecting') : googleLabel}
           </span>
           <span />
         </span>
       </Button>
 
-      <Button
-        type="default"
-        size="large"
-        disabled
-        block={fullWidth}
-        style={{
-          ...providerButtonBase,
-          height: isMobile ? 56 : 60,
-          border: '1px solid rgba(14, 165, 233, 0.18)',
-          background: '#f8fbff',
-          boxShadow: 'none',
-          opacity: 1,
-          cursor: 'not-allowed',
-        }}
-      >
-        <span
-          style={{
-            ...providerContentStyle,
-            fontSize: isMobile ? 16 : 18,
-          }}
-        >
-          <span style={iconWrapStyle}>
-            <RiTelegram2Fill size={24} color="#229ED9" />
-          </span>
-          <span style={{ textAlign: 'center' }}>Telegram orqali kirish</span>
-          <span />
-        </span>
-      </Button>
+      {telegramContent}
     </Space>
   );
 };

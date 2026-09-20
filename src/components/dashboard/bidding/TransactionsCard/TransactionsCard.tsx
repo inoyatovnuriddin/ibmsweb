@@ -1,4 +1,4 @@
-import { CardProps, Table, Typography, Image, Space, Alert } from 'antd';
+import { Alert, CardProps, Image, Space, Table, Typography } from 'antd';
 import { AuctionTransactions } from '../../../../types';
 import { SwapRightOutlined } from '@ant-design/icons';
 import { Card } from '../../../index.ts';

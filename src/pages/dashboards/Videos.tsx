@@ -19,15 +19,20 @@ import {
   Spin,
   Table,
   Tag,
+  theme,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useSelector } from 'react-redux';
 import { apiClient } from '../../services/api.ts';
 import {
   ADMIN_MODAL_STYLES,
   AdminPageFrame,
   AdminSectionCard,
 } from './adminUi.tsx';
+import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
+import { VideoPlayerModal, type PlayerVideo } from './VideoPlayerModal.tsx';
 
 const { Text } = Typography;
 
@@ -36,6 +41,12 @@ type TopicObj = { id: string; title: string };
 type VideoItem = { id: string; title: string; link: string; topic: TopicObj };
 
 export const DashboardVideosPage = () => {
+  const {
+    token: { colorPrimary, colorText, colorTextSecondary, colorBgElevated, colorBorderSecondary },
+  } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { t } = useAppTranslation();
+  const isDark = mytheme === 'dark';
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
   const [topicOptions, setTopicOptions] = useState<TopicOption[]>([]);
@@ -46,6 +57,7 @@ export const DashboardVideosPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams] = useSearchParams();
   const defaultTopicId = searchParams.get('topicId') || undefined;
+  const [playing, setPlaying] = useState<PlayerVideo | null>(null);
 
   const fetchTopicSuggestions = async (searchKey = '') => {
     setTopicLoading(true);
@@ -100,7 +112,7 @@ export const DashboardVideosPage = () => {
 
   const handleDelete = async (id: string) => {
     await apiClient.delete(`/v1/video/${id}`);
-    message.success('Video o‘chirildi');
+    message.success(t('common.delete'));
     fetchVideos();
   };
 
@@ -115,14 +127,14 @@ export const DashboardVideosPage = () => {
         topicId: values.topicId,
         link: values.link,
       });
-      message.success('Video yangilandi');
+      message.success(t('common.save'));
     } else {
       await apiClient.post('/v1/video', {
         title: values.title,
         topicId: values.topicId,
         link: values.link,
       });
-      message.success('Video qo‘shildi');
+      message.success(t('common.add'));
     }
     form.resetFields();
     setEditingVideo(null);
@@ -140,64 +152,83 @@ export const DashboardVideosPage = () => {
     );
   }, [videos, searchTerm]);
 
+  const play = (record: VideoItem) =>
+    setPlaying({ title: record.title, link: record.link, topicTitle: record.topic?.title });
+
   const columns: ColumnsType<VideoItem> = [
     {
       title: '№',
       render: (_t, _r, i) => i + 1,
-      width: 70,
+      width: 60,
     },
     {
-      title: 'Video',
+      title: t('dashboard.videos.column.video'),
       dataIndex: 'title',
       render: (value: string, record: VideoItem) => (
-        <Space direction="vertical" size={2}>
-          <Text strong style={{ color: '#102a43' }}>
-            {value}
-          </Text>
-          <Text style={{ color: '#64748b' }}>{record.topic?.title}</Text>
+        <Space size={14} align="center">
+          <button
+            type="button"
+            onClick={() => play(record)}
+            title={t('dashboard.videos.open')}
+            style={{
+              flex: '0 0 auto',
+              width: 88,
+              height: 54,
+              borderRadius: 12,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#fff',
+              background:
+                'linear-gradient(135deg, #1e293b 0%, #2563eb 100%)',
+              boxShadow: '0 6px 16px -8px rgba(37,99,235,0.6)',
+            }}
+          >
+            <PlayCircleOutlined style={{ fontSize: 24 }} />
+          </button>
+          <Space direction="vertical" size={2}>
+            <Text strong style={{ color: colorText, cursor: 'pointer' }} onClick={() => play(record)}>
+              {value}
+            </Text>
+            <Text style={{ color: colorTextSecondary, fontSize: 12 }}>{record.topic?.title}</Text>
+          </Space>
         </Space>
       ),
-      width: 320,
     },
     {
-      title: 'Mavzu',
+      title: t('dashboard.videos.column.topic'),
       dataIndex: ['topic', 'title'],
+      width: 220,
       render: (value: string) => (
         <Tag
           style={{
             margin: 0,
             borderRadius: 999,
             padding: '6px 12px',
-            background: '#eff6ff',
-            color: '#1d4ed8',
-            border: '1px solid rgba(29,78,216,0.12)',
+            background: isDark ? 'rgba(37,99,235,0.14)' : colorBgElevated,
+            color: colorPrimary,
+            border: `1px solid ${colorBorderSecondary}`,
           }}
         >
           {value}
         </Tag>
       ),
-      width: 220,
     },
     {
-      title: 'Havola',
-      dataIndex: 'link',
-      render: (url: string) => (
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          <PlayCircleOutlined /> Videoni ochish
-        </a>
-      ),
-    },
-    {
-      title: 'Amallar',
+      title: t('dashboard.videos.column.actions'),
       key: 'actions',
-      width: 180,
+      width: 210,
       render: (_: unknown, record: VideoItem) => (
         <Space wrap>
+          <Button type="primary" ghost icon={<PlayCircleOutlined />} onClick={() => play(record)}>
+            {t('dashboard.videos.open')}
+          </Button>
           <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
           <Popconfirm
-            title="Video o‘chirilsinmi?"
-            okText="Ha"
-            cancelText="Yo‘q"
+            title={t('dashboard.videos.deleteConfirm')}
+            okText={t('common.yes')}
+            cancelText={t('common.no')}
             onConfirm={() => handleDelete(record.id)}
           >
             <Button danger icon={<DeleteOutlined />} />
@@ -210,13 +241,13 @@ export const DashboardVideosPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Videolar | Admin panel</title>
+        <title>{t('dashboard.videos.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Videolar moduli"
-        title="Dars videolari boshqaruvi"
-        subtitle="Har bir mavzuga tegishli video darslarni yagona standart asosida boshqaring va tartibga soling."
+        eyebrow={t('dashboard.videos.eyebrow')}
+        title={t('dashboard.videos.title')}
+        subtitle={t('dashboard.videos.subtitle')}
         actions={
           <Button
             type="primary"
@@ -225,15 +256,15 @@ export const DashboardVideosPage = () => {
             onClick={openCreateModal}
             style={{ borderRadius: 16, height: 46 }}
           >
-            Yangi video
+            {t('dashboard.videos.add')}
           </Button>
         }
       >
         <AdminSectionCard
-          title="Video katalogi"
+          title={t('dashboard.videos.catalog')}
           extra={
             <Input.Search
-              placeholder="Video yoki mavzu nomi bo‘yicha qidiring"
+              placeholder={t('dashboard.videos.search')}
               allowClear
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -252,7 +283,7 @@ export const DashboardVideosPage = () => {
         </AdminSectionCard>
 
         <Modal
-          title={editingVideo ? 'Videoni tahrirlash' : 'Yangi video qo‘shish'}
+          title={editingVideo ? t('dashboard.videos.modalEdit') : t('dashboard.videos.modalCreate')}
           open={open}
           onCancel={() => {
             form.resetFields();
@@ -260,8 +291,8 @@ export const DashboardVideosPage = () => {
             setOpen(false);
           }}
           onOk={() => form.submit()}
-          okText="Saqlash"
-          cancelText="Bekor qilish"
+          okText={t('common.save')}
+          cancelText={t('common.cancel')}
           destroyOnClose
           centered
           width="min(680px, calc(100vw - 24px))"
@@ -275,22 +306,22 @@ export const DashboardVideosPage = () => {
           >
             <Form.Item
               name="title"
-              label="Video nomi"
-              rules={[{ required: true, message: 'Video nomini kiriting' }]}
+              label={t('dashboard.videos.field.title')}
+              rules={[{ required: true, message: t('dashboard.videos.field.titleRequired') }]}
             >
               <Input placeholder="Masalan, 1-dars: Kirish" />
             </Form.Item>
 
             <Form.Item
               name="topicId"
-              label="Mavzu"
-              rules={[{ required: true, message: 'Mavzuni tanlang' }]}
+              label={t('dashboard.videos.column.topic')}
+              rules={[{ required: true, message: t('dashboard.videos.field.topicRequired') }]}
             >
               <Select
                 showSearch
-                placeholder="Mavzuni tanlang"
+                placeholder={t('dashboard.videos.field.topicPlaceholder')}
                 filterOption={false}
-                notFoundContent={topicLoading ? <Spin size="small" /> : 'Topilmadi'}
+                notFoundContent={topicLoading ? <Spin size="small" /> : t('dashboard.videos.notFound')}
                 onSearch={(value) => fetchTopicSuggestions(value)}
                 onFocus={() => !topicOptions.length && fetchTopicSuggestions('')}
                 optionFilterProp="children"
@@ -305,14 +336,20 @@ export const DashboardVideosPage = () => {
 
             <Form.Item
               name="link"
-              label="Video havolasi"
-              rules={[{ required: true, message: 'Havolani kiriting' }]}
-              extra="Hozircha Vimeo yoki boshqa tashqi video havolalari ishlatiladi."
+              label={t('dashboard.videos.field.link')}
+              rules={[{ required: true, message: t('dashboard.videos.field.linkRequired') }]}
+              extra={t('dashboard.videos.field.linkExtra')}
             >
               <Input placeholder="https://vimeo.com/..." />
             </Form.Item>
           </Form>
         </Modal>
+
+        <VideoPlayerModal
+          video={playing}
+          open={!!playing}
+          onClose={() => setPlaying(null)}
+        />
       </AdminPageFrame>
     </div>
   );

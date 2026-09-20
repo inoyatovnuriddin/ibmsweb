@@ -2,6 +2,7 @@ import { apiClient } from '../../services/api.ts';
 import type { ListResult, Response } from '../../types/response.ts';
 import {
   CompleteLessonPayload,
+  CourseAccessCourseSummary,
   CourseAssetBundle,
   CourseQuestionRecord,
   CourseRecord,
@@ -9,6 +10,7 @@ import {
   CourseTopicRecord,
   CourseVideoRecord,
   MyCoursesProgressResponse,
+  MyEffectiveCourseAccessResponse,
   OpenLessonPayload,
   StartCoursePayload,
   SubmitTestPayload,
@@ -51,6 +53,49 @@ export const getCourseById = async (id: string) => {
   });
 
   return unwrapPayload<CourseRecord>(response);
+};
+
+export const getCourseSuggestions = async (searchKey = '') => {
+  const response = await apiClient.get<
+    Response<
+      Array<{
+        id: string;
+        name: string;
+        code?: string | null;
+        description?: string | null;
+      }>
+    >
+  >('/v1/course/suggestion', {
+    params: { searchKey },
+  });
+
+  return unwrapPayload(response) || [];
+};
+
+export const getMyEffectiveCourseAccess = async () => {
+  const response = await apiClient.get<Response<MyEffectiveCourseAccessResponse>>(
+    '/v1/course-access/me/effective'
+  );
+
+  return (
+    unwrapPayload<MyEffectiveCourseAccessResponse>(response) || {
+      userId: '',
+      groups: [],
+      effectiveCourses: [] as CourseAccessCourseSummary[],
+      overrides: [],
+    }
+  );
+};
+
+export const canViewCourse = async (courseId: string) => {
+  const response = await apiClient.get<Response<boolean>>(
+    '/v1/course-access/me/can-view',
+    {
+      params: { courseId },
+    }
+  );
+
+  return Boolean(unwrapPayload<boolean>(response));
 };
 
 export const getTopicsByCourse = async (courseId?: string | null) => {

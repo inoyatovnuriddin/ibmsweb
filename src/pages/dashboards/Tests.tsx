@@ -21,9 +21,11 @@ import {
   Spin,
   Table,
   Tag,
+  theme,
   Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useSelector } from 'react-redux';
 import { apiClient } from '../../services/api.ts';
 import {
   ADMIN_MODAL_STYLES,
@@ -31,6 +33,8 @@ import {
   AdminSectionCard,
 } from './adminUi.tsx';
 import { getAdminTest, getTests } from './testsApi.ts';
+import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Text } = Typography;
 
@@ -59,6 +63,22 @@ const createEmptyQuestion = () => ({
 });
 
 export const DashboardTestsPage = () => {
+  const {
+    token: {
+      colorPrimary,
+      colorSuccess,
+      colorText,
+      colorTextSecondary,
+      colorBgElevated,
+      colorFillTertiary,
+      colorBorderSecondary,
+    },
+  } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { t } = useAppTranslation();
+  const isDark = mytheme === 'dark';
+  const surfaceMuted = isDark ? 'rgba(148,163,184,0.10)' : colorFillTertiary;
+  const surfaceCard = isDark ? 'rgba(255,255,255,0.04)' : colorBgElevated;
   const [tests, setTests] = useState<TestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -81,7 +101,7 @@ export const DashboardTestsPage = () => {
       setTotal(data.count || 0);
       setPage(p);
     } catch {
-      message.error('Testlar ro‘yxatini yuklashda xatolik yuz berdi.');
+      message.error(t('courses.msg.loadError'));
     } finally {
       setLoading(false);
     }
@@ -120,10 +140,10 @@ export const DashboardTestsPage = () => {
 
     if (editing) {
       await apiClient.put(`/v1/test/${editing.id}`, body);
-      message.success('Test yangilandi');
+      message.success(t('common.save'));
     } else {
       await apiClient.post('/v1/test', body);
-      message.success('Yangi test qo‘shildi');
+      message.success(t('common.add'));
     }
     setModalOpen(false);
     form.resetFields();
@@ -133,7 +153,7 @@ export const DashboardTestsPage = () => {
 
   const deleteTest = async (id: string) => {
     await apiClient.delete(`/v1/test/${id}`);
-    message.success('Test o‘chirildi');
+    message.success(t('common.delete'));
     const newPage = tests.length === 1 && page > 0 ? page - 1 : page;
     fetchTests(newPage);
   };
@@ -143,7 +163,7 @@ export const DashboardTestsPage = () => {
       const res = await getAdminTest(testId);
       return res?.questions || [];
     } catch {
-      message.error('Savollarni yuklashda xatolik yuz berdi');
+      message.error(t('course.learn.msg.questionsError'));
       return [];
     }
   };
@@ -165,19 +185,19 @@ export const DashboardTestsPage = () => {
       width: 70,
     },
     {
-      title: 'Test',
+      title: t('dashboard.tests.list'),
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong style={{ color: '#102a43' }}>
+          <Text strong style={{ color: colorText }}>
             {record.title}
           </Text>
-          <Text style={{ color: '#64748b' }}>{record.topicTitle}</Text>
+          <Text style={{ color: colorTextSecondary }}>{record.topicTitle}</Text>
         </Space>
       ),
       width: 320,
     },
     {
-      title: 'Mavzu',
+      title: t('dashboard.tests.field.topic'),
       dataIndex: 'topicTitle',
       render: (value: string) => (
         <Tag
@@ -185,9 +205,9 @@ export const DashboardTestsPage = () => {
             margin: 0,
             borderRadius: 999,
             padding: '6px 12px',
-            background: '#eff6ff',
-            color: '#1d4ed8',
-            border: '1px solid rgba(29,78,216,0.12)',
+            background: isDark ? 'rgba(37,99,235,0.14)' : colorBgElevated,
+            color: colorPrimary,
+            border: `1px solid ${colorBorderSecondary}`,
           }}
         >
           {value}
@@ -196,27 +216,27 @@ export const DashboardTestsPage = () => {
       width: 220,
     },
     {
-      title: 'Savollar soni',
+      title: t('dashboard.tests.questionCount'),
       dataIndex: 'questionCount',
       width: 150,
       render: (value: number) => (
-        <Text strong style={{ color: '#0f766e' }}>
+        <Text strong style={{ color: colorSuccess }}>
           {value}
         </Text>
       ),
     },
     {
-      title: 'O‘tish bali',
+      title: t('dashboard.tests.passScore'),
       dataIndex: 'passScore',
       width: 130,
       render: (value?: number) => (
-        <Text strong style={{ color: '#1d4ed8' }}>
+        <Text strong style={{ color: colorPrimary }}>
           {typeof value === 'number' ? `${value}%` : '—'}
         </Text>
       ),
     },
     {
-      title: 'Amallar',
+      title: t('dashboard.videos.column.actions'),
       width: 160,
       render: (_: unknown, record) => (
         <Space wrap>
@@ -239,10 +259,10 @@ export const DashboardTestsPage = () => {
             }}
           />
           <Popconfirm
-            title="Test o‘chirilsinmi?"
+            title={t('dashboard.tests.deleteConfirm')}
             onConfirm={() => deleteTest(record.id)}
-            okText="Ha"
-            cancelText="Yo‘q"
+            okText={t('common.yes')}
+            cancelText={t('common.no')}
           >
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -254,13 +274,13 @@ export const DashboardTestsPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Testlar | Admin panel</title>
+        <title>{t('dashboard.tests.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Testlar moduli"
-        title="Testlar va savollar boshqaruvi"
-        subtitle="Mavzu yakunidagi testlarni, savollar tuzilmasini va to‘g‘ri javob variantlarini professional tarzda boshqaring."
+        eyebrow={t('dashboard.tests.eyebrow')}
+        title={t('dashboard.tests.title')}
+        subtitle={t('dashboard.tests.subtitle')}
         actions={
           <Button
             type="primary"
@@ -276,15 +296,15 @@ export const DashboardTestsPage = () => {
             }}
             style={{ borderRadius: 16, height: 46 }}
           >
-            Yangi test
+            {t('dashboard.tests.add')}
           </Button>
         }
       >
         <AdminSectionCard
-          title="Testlar ro‘yxati"
+          title={t('dashboard.tests.list')}
           extra={
             <Input.Search
-              placeholder="Test yoki mavzu nomi bo‘yicha qidiring"
+              placeholder={t('dashboard.tests.search')}
               allowClear
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -309,7 +329,7 @@ export const DashboardTestsPage = () => {
         </AdminSectionCard>
 
         <Modal
-          title={editing ? 'Testni tahrirlash' : 'Yangi test qo‘shish'}
+          title={editing ? t('dashboard.tests.modalEdit') : t('dashboard.tests.modalCreate')}
           open={modalOpen}
           onCancel={() => {
             setModalOpen(false);
@@ -317,8 +337,8 @@ export const DashboardTestsPage = () => {
             setEditing(null);
           }}
           onOk={() => form.submit()}
-          okText="Saqlash"
-          cancelText="Bekor qilish"
+          okText={t('common.save')}
+          cancelText={t('common.cancel')}
           centered
           width="min(920px, calc(100vw - 24px))"
           destroyOnClose
@@ -330,15 +350,14 @@ export const DashboardTestsPage = () => {
                 marginBottom: 20,
                 padding: 16,
                 borderRadius: 18,
-                background: '#f8fafc',
-                border: '1px solid rgba(148,163,184,0.12)',
+                background: surfaceMuted,
+                border: `1px solid ${colorBorderSecondary}`,
               }}
             >
               <Space direction="vertical" size={4}>
-                <Text style={{ color: '#64748b' }}>Test konfiguratsiyasi</Text>
-                <Text strong style={{ color: '#102a43' }}>
-                  Avval test nomi va tegishli mavzuni tanlang, keyin savollarni bloklar
-                  ko‘rinishida to‘ldiring.
+                <Text style={{ color: colorTextSecondary }}>{t('dashboard.tests.configTitle')}</Text>
+                <Text strong style={{ color: colorText }}>
+                  {t('dashboard.tests.configDescription')}
                 </Text>
               </Space>
             </div>
@@ -347,8 +366,8 @@ export const DashboardTestsPage = () => {
               <Col xs={24} lg={12}>
                 <Form.Item
                   name="title"
-                  label="Test nomi"
-                  rules={[{ required: true, message: 'Test nomini kiriting' }]}
+                  label={t('dashboard.tests.field.title')}
+                  rules={[{ required: true, message: t('dashboard.tests.field.titleRequired') }]}
                 >
                   <Input
                     placeholder="Masalan, 1-modul yakuniy testi"
@@ -360,15 +379,15 @@ export const DashboardTestsPage = () => {
               <Col xs={24} lg={12}>
                 <Form.Item
                   name="topicId"
-                  label="Mavzu"
-                  rules={[{ required: true, message: 'Mavzuni tanlang' }]}
+                  label={t('dashboard.tests.field.topic')}
+                  rules={[{ required: true, message: t('dashboard.tests.field.topicRequired') }]}
                 >
                   <Select
                     showSearch
                     size="large"
-                    placeholder="Mavzuni tanlang"
+                    placeholder={t('dashboard.videos.field.topicPlaceholder')}
                     filterOption={false}
-                    notFoundContent={topicLoading ? <Spin size="small" /> : 'Topilmadi'}
+                    notFoundContent={topicLoading ? <Spin size="small" /> : t('dashboard.videos.notFound')}
                     onSearch={fetchTopicSuggestions}
                     onFocus={() => !topicOptions.length && fetchTopicSuggestions('')}
                   >
@@ -392,11 +411,11 @@ export const DashboardTestsPage = () => {
                       <div
                         key={key}
                         style={{
-                          border: '1px solid rgba(148,163,184,0.16)',
+                          border: `1px solid ${colorBorderSecondary}`,
                           borderRadius: 22,
                           padding: 18,
                           marginBottom: 18,
-                          background: '#fbfdff',
+                          background: surfaceMuted,
                         }}
                       >
                         <div
@@ -410,24 +429,24 @@ export const DashboardTestsPage = () => {
                           }}
                         >
                           <Space direction="vertical" size={2}>
-                            <Text style={{ color: '#64748b' }}>
-                              Savol bloki #{name + 1}
+                            <Text style={{ color: colorTextSecondary }}>
+                              {t('dashboard.tests.questionBlock')} #{name + 1}
                             </Text>
-                            <Text strong style={{ color: '#102a43' }}>
-                              Savol va variantlar
+                            <Text strong style={{ color: colorText }}>
+                              {t('dashboard.tests.questionVariantTitle')}
                             </Text>
                           </Space>
                           <Button type="link" danger onClick={() => remove(name)}>
-                            Savolni o‘chirish
+                            {t('dashboard.tests.questionDelete')}
                           </Button>
                         </div>
 
                         <Form.Item
                           {...restField}
                           name={[name, 'text']}
-                          label="Savol matni"
+                          label={t('dashboard.tests.questionText')}
                           rules={[
-                            { required: true, message: 'Savol matnini kiriting' },
+                            { required: true, message: t('dashboard.tests.questionTextRequired') },
                           ]}
                         >
                           <Input.TextArea
@@ -443,10 +462,10 @@ export const DashboardTestsPage = () => {
                                 style={{
                                   display: 'block',
                                   marginBottom: 10,
-                                  color: '#64748b',
+                                  color: colorTextSecondary,
                                 }}
                               >
-                                Javob variantlari
+                                {t('dashboard.tests.answers')}
                               </Text>
                               {answerFields.map(
                                 ({
@@ -463,8 +482,8 @@ export const DashboardTestsPage = () => {
                                       marginBottom: 10,
                                       padding: 12,
                                       borderRadius: 16,
-                                      background: '#fff',
-                                      border: '1px solid rgba(148,163,184,0.12)',
+                                      background: surfaceCard,
+                                      border: `1px solid ${colorBorderSecondary}`,
                                     }}
                                   >
                                     <div
@@ -472,8 +491,8 @@ export const DashboardTestsPage = () => {
                                         minWidth: 32,
                                         height: 32,
                                         borderRadius: 10,
-                                        background: '#eff6ff',
-                                        color: '#1d4ed8',
+                                        background: surfaceMuted,
+                                        color: colorPrimary,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -489,7 +508,7 @@ export const DashboardTestsPage = () => {
                                       rules={[
                                         {
                                           required: true,
-                                          message: 'Javob variantini kiriting',
+                                          message: t('dashboard.tests.answerRequired'),
                                         },
                                       ]}
                                     >
@@ -516,11 +535,11 @@ export const DashboardTestsPage = () => {
                                   disabled={answerFields.length >= 5}
                                   style={{ borderRadius: 14, height: 42 }}
                                 >
-                                  Javob qo‘shish
+                                  {t('dashboard.tests.answerAdd')}
                                 </Button>
                                 {answerFields.length >= 5 ? (
-                                  <Text style={{ marginLeft: 8, color: '#64748b' }}>
-                                    Eng ko‘pi 5 ta variant
+                                  <Text style={{ marginLeft: 8, color: colorTextSecondary }}>
+                                    {t('dashboard.tests.answerMax')}
                                   </Text>
                                 ) : null}
                               </Form.Item>
@@ -529,7 +548,7 @@ export const DashboardTestsPage = () => {
                         </Form.List>
 
                         <Form.Item
-                          label="To‘g‘ri javob"
+                          label={t('dashboard.tests.correctAnswer')}
                           required
                           shouldUpdate={(prev, current) =>
                             prev.questions?.[name]?.answers !==
@@ -548,7 +567,7 @@ export const DashboardTestsPage = () => {
                                 rules={[
                                   {
                                     required: true,
-                                    message: 'To‘g‘ri javobni tanlang',
+                                    message: t('dashboard.tests.correctAnswerRequired'),
                                   },
                                 ]}
                               >
@@ -562,7 +581,7 @@ export const DashboardTestsPage = () => {
                                     <Select.Option key={idx} value={idx}>
                                       <Space>
                                         <CheckCircleOutlined style={{ color: '#16a34a' }} />
-                                        {labels[idx]}: {answer || '<bo‘sh>'}
+                                        {labels[idx]}: {answer || t('common.notProvided')}
                                       </Space>
                                     </Select.Option>
                                   ))}
@@ -583,7 +602,7 @@ export const DashboardTestsPage = () => {
                       icon={<PlusOutlined />}
                       style={{ borderRadius: 16, height: 46 }}
                     >
-                      Yangi savol qo‘shish
+                      {t('dashboard.tests.questionAdd')}
                     </Button>
                   </Form.Item>
                 </>

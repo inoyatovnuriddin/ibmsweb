@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Avatar,
   ConfigProvider,
   Layout,
   Menu,
@@ -7,25 +8,33 @@ import {
   SiderProps,
   Space,
   Tag,
-  Typography,
+  theme,
 } from 'antd';
 import {
   BarChartOutlined,
+  CrownOutlined,
   FolderOpenOutlined,
   GroupOutlined,
   HomeOutlined,
+  MessageOutlined,
+  QrcodeOutlined as QrCodeOutlined,
   QuestionCircleOutlined,
   ReadOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
+  UserOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { Logo } from '../../components';
 import { PATH_DASHBOARD, PATH_LANDING } from '../../constants';
 import { apiClient } from '../../services/api.ts';
+import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
+import { hasPagePermission } from '../../routes/ProtectedRoute.tsx';
 
 const { Sider } = Layout;
-const { Text, Title } = Typography;
 
 type MenuItem = Required<MenuProps>['items'][number];
 
@@ -34,6 +43,7 @@ interface User {
   firstname: string;
   lastname: string;
   email: string;
+  userImage?: string | null;
   roles: string[];
 }
 
@@ -57,6 +67,9 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
   const { pathname } = useLocation();
   const [current, setCurrent] = useState('');
   const [user, setUser] = useState<User | null>(null);
+  const { token } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { language, t } = useAppTranslation();
 
   useEffect(() => {
     if (pathname.includes('/groups')) {
@@ -73,66 +86,132 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
       .get('/v1/users/account')
       .then((res) => setUser(res.data))
       .catch(() => setUser(null));
-  }, []);
+  }, [language]);
 
-  const items: MenuProps['items'] = useMemo(
-    () => [
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const isSuperAdmin = Boolean(currentUser?.roles?.includes('ROLE_SUPER_ADMIN'));
+  const avatarUrl = user?.userImage || currentUser?.userImage || null;
+
+  const items: MenuProps['items'] = useMemo(() => {
+    // Each menu item is tied to an admin page key; the super admin grants page access per role.
+    const pageItems: { page: string; item: MenuItem }[] = [
+      {
+        page: 'users',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.users}>{t('dashboard.users')}</Link>,
+          'users',
+          <TeamOutlined />
+        ),
+      },
+      {
+        page: 'courses',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.courses}>{t('dashboard.courses')}</Link>,
+          'courses',
+          <FolderOpenOutlined />
+        ),
+      },
+      {
+        page: 'topics',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.topics}>{t('dashboard.topics')}</Link>,
+          'topics',
+          <ReadOutlined />
+        ),
+      },
+      {
+        page: 'videos',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.videos}>{t('dashboard.videos')}</Link>,
+          'videos',
+          <VideoCameraOutlined />
+        ),
+      },
+      {
+        page: 'tests',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.tests}>{t('dashboard.tests')}</Link>,
+          'tests',
+          <QuestionCircleOutlined />
+        ),
+      },
+      {
+        page: 'monitoring',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.monitoring}>{t('dashboard.monitoring')}</Link>,
+          'monitoring',
+          <BarChartOutlined />
+        ),
+      },
+      {
+        page: 'groups',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.groups}>{t('dashboard.groups')}</Link>,
+          'groups',
+          <GroupOutlined />
+        ),
+      },
+      {
+        page: 'qrCode',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.qrCode}>{t('dashboard.qrCode')}</Link>,
+          'qrCode',
+          <QrCodeOutlined />
+        ),
+      },
+      {
+        page: 'certificates',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.certificates}>{t('dashboard.certificates')}</Link>,
+          'certificates',
+          <SafetyCertificateOutlined />
+        ),
+      },
+      {
+        page: 'contactRequests',
+        item: createItem(
+          <Link to={PATH_DASHBOARD.publicContactRequests}>
+            {t('dashboard.contactRequests')}
+          </Link>,
+          'contact-requests',
+          <MessageOutlined />
+        ),
+      },
+    ];
+
+    const visible = pageItems
+      .filter(({ page }) => hasPagePermission(currentUser, page))
+      .map(({ item }) => item);
+
+    // Role management is visible to the super admin only.
+    if (isSuperAdmin) {
+      visible.push(
+        createItem(
+          <Link to={PATH_DASHBOARD.roles}>{t('dashboard.roles')}</Link>,
+          'roles',
+          <CrownOutlined />
+        )
+      );
+    }
+
+    visible.push(
       createItem(
-        <Link to={PATH_DASHBOARD.users}>Foydalanuvchilar</Link>,
-        'users',
-        <TeamOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.courses}>Kurslar</Link>,
-        'courses',
-        <FolderOpenOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.topics}>Mavzular</Link>,
-        'topics',
-        <ReadOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.videos}>Videolar</Link>,
-        'videos',
-        <VideoCameraOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.tests}>Testlar</Link>,
-        'tests',
-        <QuestionCircleOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.monitoring}>Monitoring</Link>,
-        'monitoring',
-        <BarChartOutlined />
-      ),
-      createItem(
-        <Link to={PATH_DASHBOARD.groups}>Guruhlar</Link>,
-        'groups',
-        <GroupOutlined />
-      ),
-      // createItem(
-      //   <Link to={PATH_DASHBOARD.qrCode}>QR-kod</Link>,
-      //   'qrCode',
-      //   <QrcodeOutlined />
-      // ),
-      createItem(
-        <Link to={PATH_LANDING.root}>Saytga qaytish</Link>,
+        <Link to={PATH_LANDING.root}>{t('dashboard.backToSite')}</Link>,
         'landing',
         <HomeOutlined />
-      ),
-    ],
-    []
-  );
+      )
+    );
+
+    return visible;
+  }, [t, currentUser, isSuperAdmin]);
 
   return (
     <div
       style={{
         height: '100%',
         borderRadius: 24,
-        background: '#ffffff',
-        border: '1px solid rgba(148,163,184,0.12)',
+        background: token.colorBgContainer,
+        border: `1px solid ${token.colorBorderSecondary}`,
         boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
         display: 'flex',
         flexDirection: 'column',
@@ -142,7 +221,7 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
       <div
         style={{
           padding: collapsed ? '18px 14px' : '20px 18px 18px',
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <Logo
@@ -154,26 +233,34 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
           imgSize={{ h: collapsed ? 34 : 40 }}
         />
         {!collapsed ? (
-          <Space direction="vertical" size={6} style={{ marginTop: 14 }}>
-            <Tag
-              style={{
-                width: 'fit-content',
-                margin: 0,
-                borderRadius: 999,
-                padding: '4px 10px',
-                background: '#f8fafc',
-                color: '#475569',
-                border: '1px solid rgba(148,163,184,0.12)',
-              }}
-            >
-              Admin panel
-            </Tag>
-            <Title level={5} style={{ margin: 0, color: '#102a43' }}>
-              {user ? `${user.firstname} ${user.lastname}` : 'Administrator'}
-            </Title>
-            <Text style={{ color: '#64748b' }}>LMS boshqaruv markazi</Text>
+          <Space align="center" size={12} style={{ marginTop: 14, width: '100%' }}>
+            <Space direction="vertical" size={2} style={{ minWidth: 0 }}>
+              <Tag
+                style={{
+                  width: 'fit-content',
+                  margin: 0,
+                  borderRadius: 999,
+                  padding: '2px 10px',
+                  fontSize: 11,
+                  background: mytheme === 'dark' ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+                  color: token.colorTextSecondary,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                {t('dashboard.panel')}
+              </Tag>
+            </Space>
           </Space>
-        ) : null}
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+            <Avatar
+              size={40}
+              src={avatarUrl || undefined}
+              icon={<UserOutlined />}
+              style={{ background: 'rgba(37,99,235,0.12)', color: '#1d4ed8' }}
+            />
+          </div>
+        )}
       </div>
 
       <ConfigProvider
@@ -181,10 +268,10 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
           components: {
             Menu: {
               itemBg: 'transparent',
-              itemSelectedBg: '#eef4ff',
-              itemHoverBg: '#f8fafc',
-              itemSelectedColor: '#1d4ed8',
-              itemColor: '#334155',
+              itemSelectedBg: mytheme === 'dark' ? 'rgba(37,99,235,0.18)' : '#eef4ff',
+              itemHoverBg: mytheme === 'dark' ? 'rgba(255,255,255,0.06)' : '#f8fafc',
+              itemSelectedColor: mytheme === 'dark' ? '#93c5fd' : '#1d4ed8',
+              itemColor: mytheme === 'dark' ? 'rgba(255,255,255,0.72)' : '#334155',
               borderRadiusLG: 14,
               itemMarginBlock: 4,
             },
@@ -203,33 +290,15 @@ export const AdminSideNavContent = ({ collapsed = false }: SideNavContentProps) 
           }}
         />
       </ConfigProvider>
-
-      {!collapsed ? (
-        <div
-          style={{
-            margin: 14,
-            padding: 14,
-            borderRadius: 18,
-            background: '#f8fafc',
-            border: '1px solid rgba(148,163,184,0.12)',
-          }}
-        >
-          <Text style={{ color: '#64748b' }}>Holat</Text>
-          <Title level={5} style={{ margin: '4px 0', color: '#102a43' }}>
-            Barcha modullar tayyor
-          </Title>
-          <Text style={{ color: '#64748b' }}>
-            Kurslar, testlar va foydalanuvchilar shu yerdan boshqariladi.
-          </Text>
-        </div>
-      ) : null}
     </div>
   );
 };
 
 const SideNav = ({ collapsed, ...others }: SideNavProps) => {
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+
   return (
-    <Sider breakpoint="lg" theme="light" {...others}>
+    <Sider breakpoint="lg" theme={mytheme === 'dark' ? 'dark' : 'light'} {...others}>
       <AdminSideNavContent collapsed={collapsed} />
     </Sider>
   );

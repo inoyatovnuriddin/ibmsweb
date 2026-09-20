@@ -1,5 +1,5 @@
 import { useRouteError } from 'react-router-dom';
-import { Result, Typography } from 'antd';
+import { Result, theme, Typography } from 'antd';
 import { BackBtn, RefreshBtn } from '../../components';
 
 const { Paragraph, Text } = Typography;
@@ -7,6 +7,9 @@ const { Paragraph, Text } = Typography;
 type Error = unknown | any;
 
 export const ErrorPage = () => {
+  const {
+    token: { colorBgLayout },
+  } = theme.useToken();
   const error: Error = useRouteError();
   console.error(error);
   const rawMessage = error?.statusText || error?.message || 'Noma’lum xatolik';
@@ -18,25 +21,36 @@ export const ErrorPage = () => {
         : rawMessage;
 
   return (
-    <Result
-      status="error"
-      title="Xatolik yuz berdi"
-      subTitle="Sahifani ochishda kutilmagan muammo yuz berdi."
-      extra={[<BackBtn type="primary" />, <RefreshBtn />]}
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: colorBgLayout,
+        padding: '24px 16px',
+      }}
     >
-      <div className="desc">
-        <Paragraph>
-          <Text
-            strong
-            style={{
-              fontSize: 16,
-            }}
-          >
-            Ochmoqchi bo‘lgan sahifangizda quyidagi xatolik aniqlandi:
-          </Text>
-        </Paragraph>
-        <Paragraph copyable>{normalizedMessage}</Paragraph>
-      </div>
-    </Result>
+      <Result
+        status="error"
+        title="Xatolik yuz berdi"
+        subTitle="Sahifani ochishda kutilmagan muammo yuz berdi."
+        extra={[<BackBtn type="primary" />, <RefreshBtn />]}
+      >
+        <div className="desc">
+          <Paragraph>
+            <Text
+              strong
+              style={{
+                fontSize: 16,
+              }}
+            >
+              Ochmoqchi bo‘lgan sahifangizda quyidagi xatolik aniqlandi:
+            </Text>
+          </Paragraph>
+          <Paragraph copyable>{normalizedMessage}</Paragraph>
+        </div>
+      </Result>
+    </div>
   );
 };

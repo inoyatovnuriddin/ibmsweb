@@ -4,6 +4,7 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import themeReducer, { ThemeState } from './theme/themeSlice';
 import courseReducer from './course/courseSlice';
 import authReducer from './auth/authSlice';
+import languageReducer, { LanguageState } from './language/languageSlice';
 import { PersistConfig, persistReducer, persistStore } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 
@@ -12,13 +13,15 @@ interface RootState {
   theme: ThemeState;
   course: ReturnType<typeof courseReducer>;
   auth: ReturnType<typeof authReducer>;
+  language: LanguageState;
 }
 
 // Combine reducers
 const rootReducer = combineReducers({
   theme: themeReducer,
   course: courseReducer,
-  auth: authReducer
+  auth: authReducer,
+  language: languageReducer,
 });
 
 // Persist config with RootState

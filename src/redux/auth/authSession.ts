@@ -3,6 +3,8 @@ import type { CurrentUser } from './authApi.ts';
 
 export const readAccessToken = () => localStorage.getItem('access_token');
 const OAUTH_INTENT_KEY = 'oauth_intent';
+export const TELEGRAM_BOT_USERNAME =
+  import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'ibmsbukharabot';
 
 export type OauthIntent = 'signin' | 'signup';
 
@@ -54,7 +56,7 @@ export const clearOauthIntent = () => {
 };
 
 export const buildGoogleOauthUrl = () => {
-  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+  const apiBase = import.meta.env.VITE_API_URL || '/api';
   const normalizedBase = apiBase.replace(/\/api\/?$/, '');
   return `${normalizedBase}/api/oauth2/authorize/google`;
 };

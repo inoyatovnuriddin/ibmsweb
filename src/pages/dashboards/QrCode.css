@@ -1,0 +1,52 @@
+.qr-template-grid {
+  scrollbar-width: thin;
+}
+
+.qr-template-card {
+  cursor: pointer;
+}
+
+.qr-template-card .ant-card-cover {
+  margin-inline: 0 !important;
+}
+
+.qr-template-card__overlay {
+  opacity: 0;
+  transform: translateY(-24px);
+  transition:
+    opacity 240ms ease,
+    transform 280ms ease;
+}
+
+.qr-template-card__content {
+  opacity: 0;
+  transform: translateY(-16px);
+  transition:
+    opacity 260ms ease,
+    transform 320ms ease;
+}
+
+.qr-template-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.qr-template-card__bottom {
+  display: grid;
+  gap: 10px;
+}
+
+.qr-template-card:hover .qr-template-card__overlay,
+.qr-template-card.is-selected .qr-template-card__overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.qr-template-card:hover .qr-template-card__content,
+.qr-template-card.is-selected .qr-template-card__content {
+  opacity: 1;
+  transform: translateY(0);
+}

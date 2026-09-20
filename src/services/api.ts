@@ -1,5 +1,11 @@
 // === Request interceptor ===
-import axios, { AxiosError, AxiosHeaders, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosHeaders,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
+import { getBackendLanguageCode, readAppLanguage } from '../i18n';
 
 const storage = {
   getAccessToken: () => localStorage.getItem('access_token'),
@@ -60,6 +66,26 @@ export const apiClient = axios.create({
   // },
 });
 
+/**
+ * Client for PUBLIC endpoints (e.g. the certificate verification page reached by scanning a
+ * QR code). It never attaches the auth token and never redirects to login, so a stale/expired
+ * token left in localStorage can't turn a public page into a forced sign-in.
+ */
+export const publicApiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+  timeout: 10000,
+});
+
+publicApiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (!config.headers) {
+    config.headers = new AxiosHeaders();
+  }
+  const language = getBackendLanguageCode(readAppLanguage());
+  config.headers.set('X-Language', language);
+  config.headers.set('Accept-Language', language);
+  return config;
+});
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = storage.getAccessToken();
@@ -71,6 +97,10 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.set("Authorization", `Bearer ${token}`);
     }
+
+    const language = getBackendLanguageCode(readAppLanguage());
+    config.headers.set('X-Language', language);
+    config.headers.set('Accept-Language', language);
 
     return config;
   },
@@ -84,11 +114,22 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as AxiosRequestConfig & {
       _retry?: boolean;
     };
+    const hasAccessToken = Boolean(storage.getAccessToken());
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (!hasAccessToken) {
+        return Promise.reject(error);
+      }
+
+      // Public verification page must never be turned into a forced sign-in.
+      const isPublicPage = window.location.pathname.startsWith('/cert/');
+      if (isPublicPage) {
+        return Promise.reject(error);
+      }
+
       storage.removeAccessToken();
       if (window.location.pathname !== '/login' && window.location.pathname !== '/auth/signin') {
-        window.location.href = '/login';
+        window.location.href = '/auth/signin';
       }
       if (isRefreshing) {
         return new Promise((resolve, reject) => {

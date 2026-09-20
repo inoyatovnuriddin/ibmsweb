@@ -16,12 +16,15 @@ import {
 } from 'antd';
 import { useMediaQuery } from 'react-responsive';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { Logo } from '../../components';
 import { PATH_AUTH, PATH_LANDING } from '../../constants';
 import {
   confirmPasswordReset,
   validatePasswordResetToken,
 } from '../../redux/auth/authApi.ts';
+import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Title, Text } = Typography;
 
@@ -30,7 +33,7 @@ type ResetPasswordFormValues = {
   confirmPassword: string;
 };
 
-const getReadableResetError = (error: unknown) => {
+const getReadableResetError = (error: unknown, fallback: string) => {
   const err = error as {
     response?: { data?: { errors?: { message?: string; details?: string }; message?: string; detail?: string } };
     message?: string;
@@ -42,15 +45,23 @@ const getReadableResetError = (error: unknown) => {
     err?.response?.data?.detail ||
     err?.response?.data?.message ||
     err?.message ||
-    'Havola yaroqsiz yoki muddati tugagan'
+    fallback
   );
 };
 
 export const ResetPasswordConfirmPage = () => {
   const {
-    token: { colorPrimary },
+    token: {
+      colorPrimary,
+      colorBgContainer,
+      colorBorderSecondary,
+      colorTextSecondary,
+    },
   } = theme.useToken();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { t } = useAppTranslation();
   const isMobile = useMediaQuery({ maxWidth: 769 });
+  const isDark = mytheme === 'dark';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm<ResetPasswordFormValues>();
@@ -62,13 +73,16 @@ export const ResetPasswordConfirmPage = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const token = useMemo(() => searchParams.get('token')?.trim() || '', [searchParams]);
+  const pageBackground = isDark
+    ? 'radial-gradient(circle at top, rgba(37,99,235,0.18) 0%, transparent 34%), var(--home-bg)'
+    : 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)';
 
   useEffect(() => {
     let mounted = true;
 
     const runValidation = async () => {
       if (!token) {
-        setValidationError('Havola yaroqsiz yoki muddati tugagan');
+        setValidationError(t('auth.resetConfirm.invalidTitle'));
         setValidating(false);
         setIsValid(false);
         return;
@@ -85,7 +99,7 @@ export const ResetPasswordConfirmPage = () => {
       } catch (error) {
         if (!mounted) return;
         setIsValid(false);
-        setValidationError(getReadableResetError(error));
+        setValidationError(getReadableResetError(error, t('auth.resetConfirm.invalidTitle')));
       } finally {
         if (mounted) setValidating(false);
       }
@@ -110,14 +124,14 @@ export const ResetPasswordConfirmPage = () => {
 
       messageApi.success(
         payload?.message ||
-          'Parolingiz muvaffaqiyatli yangilandi. Endi yangi parol bilan tizimga kirishingiz mumkin.'
+          t('auth.resetConfirm.success')
       );
 
       setTimeout(() => {
         navigate(PATH_AUTH.signin, { replace: true });
       }, 1600);
     } catch (error) {
-      messageApi.error(getReadableResetError(error));
+      messageApi.error(getReadableResetError(error, t('auth.resetConfirm.invalidTitle')));
     } finally {
       setLoading(false);
     }
@@ -127,7 +141,7 @@ export const ResetPasswordConfirmPage = () => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)',
+        background: pageBackground,
         padding: isMobile ? '20px 12px' : '32px 20px',
         display: 'flex',
         alignItems: 'center',
@@ -139,11 +153,11 @@ export const ResetPasswordConfirmPage = () => {
         style={{
           width: '100%',
           maxWidth: 1120,
-          background: '#ffffff',
+          background: colorBgContainer,
           borderRadius: 30,
           overflow: 'hidden',
-          border: '1px solid rgba(148,163,184,0.14)',
-          boxShadow: '0 28px 80px rgba(15,23,42,0.08)',
+          border: `1px solid ${colorBorderSecondary}`,
+          boxShadow: 'var(--color-shadow-elevated)',
         }}
       >
         <Row gutter={0}>
@@ -166,13 +180,13 @@ export const ResetPasswordConfirmPage = () => {
                 className="text-white"
                 style={{ marginBottom: 12, letterSpacing: '-0.02em' }}
               >
-                Yangi parol o‘rnating
+                {t('auth.resetConfirm.heroTitle')}
               </Title>
               <Text
                 className="text-white"
                 style={{ fontSize: isMobile ? 16 : 18, maxWidth: 360, lineHeight: 1.6 }}
               >
-                Parolni yangilang va hisobingizga yangi ma’lumot bilan xavfsiz qayta kiring.
+                {t('auth.resetConfirm.heroSubtitle')}
               </Text>
             </Flex>
           </Col>
@@ -193,17 +207,17 @@ export const ResetPasswordConfirmPage = () => {
               ) : !isValid ? (
                 <Result
                   status="error"
-                  title="Havola yaroqsiz yoki muddati tugagan"
-                  subTitle={validationError || 'Qayta tiklash havolasi ishlamayapti. Yangi havola so‘rab ko‘ring.'}
+                  title={t('auth.resetConfirm.invalidTitle')}
+                  subTitle={validationError || t('auth.resetConfirm.invalidSubtitle')}
                   extra={
                     <Space wrap>
                       <Link to={PATH_AUTH.passwordReset}>
                         <Button type="primary" size="large">
-                          Qayta link yuborish
+                          {t('auth.resetConfirm.resend')}
                         </Button>
                       </Link>
                       <Link to={PATH_AUTH.signin}>
-                        <Button size="large">Tizimga kirish</Button>
+                        <Button size="large">{t('auth.signIn.submit')}</Button>
                       </Link>
                     </Space>
                   }
@@ -218,12 +232,12 @@ export const ResetPasswordConfirmPage = () => {
                         letterSpacing: '-0.02em',
                       }}
                     >
-                      Yangi parol
+                      {t('auth.resetConfirm.heading')}
                     </Title>
-                    <Text style={{ display: 'block', color: '#52606d', fontSize: 16, marginTop: 10, lineHeight: 1.7 }}>
+                    <Text style={{ display: 'block', color: colorTextSecondary, fontSize: 16, marginTop: 10, lineHeight: 1.7 }}>
                       {validatedEmail
-                        ? `${validatedEmail} uchun yangi parol o‘rnating.`
-                        : 'Yangi parol va uning tasdig‘ini kiriting.'}
+                        ? `${validatedEmail} ${t('auth.resetConfirm.headingWithEmail')}`
+                        : t('auth.resetConfirm.description')}
                     </Text>
                   </div>
 
@@ -231,8 +245,8 @@ export const ResetPasswordConfirmPage = () => {
                     type="info"
                     showIcon
                     style={{ borderRadius: 16 }}
-                    message="Parol kuchli bo‘lishi tavsiya etiladi"
-                    description="Kamida harf va raqamlardan iborat, eslab qolish oson, lekin boshqalar topa olmaydigan parol tanlang."
+                    message={t('auth.resetConfirm.passwordHintTitle')}
+                    description={t('auth.resetConfirm.passwordHintText')}
                   />
 
                   <Form<ResetPasswordFormValues>
@@ -245,26 +259,26 @@ export const ResetPasswordConfirmPage = () => {
                     style={{ width: '100%' }}
                   >
                     <Form.Item
-                      label="Yangi parol"
+                      label={t('auth.form.password')}
                       name="password"
-                      rules={[{ required: true, message: 'Yangi parolni kiriting' }]}
+                      rules={[{ required: true, message: t('auth.validation.passwordRequired') }]}
                     >
                       <Input.Password size="large" autoComplete="new-password" />
                     </Form.Item>
 
                     <Form.Item
-                      label="Parolni tasdiqlang"
+                      label={t('auth.form.confirmPassword')}
                       name="confirmPassword"
                       dependencies={['password']}
                       rules={[
-                        { required: true, message: 'Parolni tasdiqlang' },
+                        { required: true, message: t('auth.validation.confirmPasswordRequired') },
                         ({ getFieldValue }) => ({
                           validator(_, value) {
                             if (!value || getFieldValue('password') === value) {
                               return Promise.resolve();
                             }
 
-                            return Promise.reject(new Error('Parollar mos emas'));
+                            return Promise.reject(new Error(t('auth.validation.confirmPasswordMismatch')));
                           },
                         }),
                       ]}
@@ -281,11 +295,11 @@ export const ResetPasswordConfirmPage = () => {
                           loading={loading}
                           style={{ minWidth: isMobile ? '100%' : 200 }}
                         >
-                          Parolni yangilash
+                          {t('auth.resetConfirm.submit')}
                         </Button>
                         <Link to={PATH_AUTH.signin} style={{ width: isMobile ? '100%' : 'auto' }}>
                           <Button size="large" style={{ minWidth: isMobile ? '100%' : 140 }}>
-                            Bekor qilish
+                            {t('auth.reset.cancel')}
                           </Button>
                         </Link>
                       </Flex>

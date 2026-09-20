@@ -5,6 +5,8 @@ import {
   Layout,
   Select,
   Space,
+  Switch,
+  theme,
   Typography,
 } from 'antd';
 import {
@@ -17,42 +19,68 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   LoginOutlined,
   MenuOutlined,
+  MoonOutlined,
   PhoneOutlined,
   ProductOutlined,
   ReadOutlined,
+  SunOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { useDispatch, useSelector } from 'react-redux';
 import { useMediaQuery } from 'react-responsive';
 import { motion } from 'framer-motion';
 import { Logo, NProgress } from '../../components';
 import { PATH_AUTH, PATH_COURSE, PATH_LANDING } from '../../constants';
+import { toggleTheme } from '../../redux/theme/themeSlice.ts';
+import { setLanguage } from '../../redux/language/languageSlice.ts';
+import type { RootState } from '../../redux/store.ts';
+import { LANGUAGE_OPTIONS } from '../../i18n';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
+import uzbekistanFlag from '../../assets/flags/uzbekistan.svg';
+import russiaFlag from '../../assets/flags/russia.svg';
 
 const { Header, Content, Footer } = Layout;
 const { Text, Title } = Typography;
 
-const NAV_ITEMS = [
-  {
-    label: 'Bosh sahifa',
-    href: '/',
-    icon: <ProductOutlined />,
-  },
-  {
-    label: 'Kurslar',
-    href: PATH_COURSE.catalog,
-    icon: <ReadOutlined />,
-  },
-  {
-    label: 'Aloqa',
-    href: '/#contact',
-    icon: <PhoneOutlined />,
-  },
-];
+const LANGUAGE_FLAG_MAP = {
+  uz: uzbekistanFlag,
+  ru: russiaFlag,
+  'uz-Cyrl': uzbekistanFlag,
+} as const;
 
-const LANGUAGE_OPTIONS = [
-  { value: 'uz-latn', label: "O'zbek" },
-  { value: 'ru', label: 'Русский' },
-  { value: 'uz-cyrl', label: 'Ўзбекча' },
-];
+const renderLanguageOption = (option: (typeof LANGUAGE_OPTIONS)[number]) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+    <img
+      src={LANGUAGE_FLAG_MAP[option.value]}
+      alt={option.label}
+      style={{
+        width: 22,
+        height: 16,
+        objectFit: 'cover',
+        borderRadius: 999,
+        boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12)',
+        flexShrink: 0,
+      }}
+    />
+    <span
+      style={{
+        color: 'var(--color-text)',
+        fontWeight: 600,
+        fontSize: 16,
+        lineHeight: 1.2,
+        flex: 1,
+        minWidth: 0,
+      }}
+    >
+      {option.label}
+    </span>
+  </div>
+);
+
+const LANGUAGE_SELECT_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
+  value: option.value,
+  label: renderLanguageOption(option),
+}));
 
 export const GuestLayout = () => {
   const isMobile = useMediaQuery({ maxWidth: 992 });
@@ -61,20 +89,28 @@ export const GuestLayout = () => {
   const nodeRef = useRef(null);
   const [navFill, setNavFill] = useState(false);
   const [open, setOpen] = useState(false);
+  const dispatch = useDispatch();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { token } = theme.useToken();
+  const { language, t } = useAppTranslation();
+
+  const navItems = useMemo(
+    () => [
+      { label: t('nav.home'), href: '/', icon: <ProductOutlined /> },
+      { label: t('nav.courses'), href: PATH_COURSE.catalog, icon: <ReadOutlined /> },
+      { label: t('nav.contact'), href: '/#contact', icon: <PhoneOutlined /> },
+    ],
+    [t]
+  );
 
   useEffect(() => {
-    const onScroll = () => {
-      setNavFill(window.scrollY > 12);
-    };
-
+    const onScroll = () => setNavFill(window.scrollY > 12);
     onScroll();
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setOpen(false); }, [location.pathname]);
 
   const authButton = useMemo(() => {
     if (localStorage.getItem('access_token')) {
@@ -85,13 +121,12 @@ export const GuestLayout = () => {
             type="primary"
             size="large"
             style={{ height: 48, borderRadius: 16, paddingInline: 20 }}
-          >
-            Profil
+        >
+            {t('nav.profile')}
           </Button>
         </Link>
       );
     }
-
     return (
       <Link to={PATH_AUTH.signin}>
         <Button
@@ -100,16 +135,16 @@ export const GuestLayout = () => {
           size="large"
           style={{ height: 48, borderRadius: 16, paddingInline: 20 }}
         >
-          Kirish
+          {t('nav.signIn')}
         </Button>
       </Link>
     );
-  }, []);
+  }, [t]);
 
   return (
     <>
       <NProgress isAnimating={isLoading} key={location.key} />
-      <Layout style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      <Layout style={{ minHeight: '100vh', background: token.colorBgLayout }}>
         <Header
           style={{
             position: 'sticky',
@@ -118,10 +153,12 @@ export const GuestLayout = () => {
             height: 'auto',
             lineHeight: 'normal',
             padding: '16px 20px',
-            background: navFill ? 'rgba(255, 251, 245, 0.9)' : 'rgba(255, 255, 255, 0.72)',
+            background: navFill
+              ? (mytheme === 'dark' ? 'var(--header-bg-fill)' : 'rgba(255, 251, 245, 0.9)')
+              : (mytheme === 'dark' ? 'var(--header-bg-empty)' : 'rgba(255, 255, 255, 0.72)'),
             backdropFilter: 'blur(18px)',
             borderBottom: navFill
-              ? '1px solid rgba(148,163,184,0.14)'
+              ? `1px solid ${token.colorBorderSecondary}`
               : '1px solid transparent',
             transition: 'all .25s ease',
             boxShadow: navFill ? '0 14px 40px rgba(15,23,42,0.06)' : 'none',
@@ -140,12 +177,7 @@ export const GuestLayout = () => {
               gap: 16,
             }}
           >
-            <Logo
-              color="white"
-              asLink
-              href={PATH_LANDING.root}
-              imgSize={{ h: 62 }}
-            />
+            <Logo color="white" asLink href={PATH_LANDING.root} imgSize={{ h: 62 }} />
 
             {!isMobile ? (
               <div
@@ -164,21 +196,17 @@ export const GuestLayout = () => {
                     gap: 8,
                     padding: 8,
                     borderRadius: 999,
-                    background: 'rgba(255,255,255,0.84)',
-                    border: '1px solid rgba(148,163,184,0.14)',
+                    background: 'var(--nav-pill-bg)',
+                    border: `1px solid ${token.colorBorderSecondary}`,
                   }}
                 >
-                  {NAV_ITEMS.map((item) => (
-                    <a
-                      key={item.label}
-                      href={item.href}
-                      style={{ textDecoration: 'none' }}
-                    >
+                  {navItems.map((item) => (
+                    <a key={item.label} href={item.href} style={{ textDecoration: 'none' }}>
                       <Button
                         type="text"
                         icon={item.icon}
                         style={{
-                          color: '#102a43',
+                          color: token.colorText,
                           height: 42,
                           borderRadius: 999,
                           paddingInline: 16,
@@ -190,28 +218,46 @@ export const GuestLayout = () => {
                   ))}
                 </nav>
                 <Select
-                  defaultValue="uz-latn"
-                  options={LANGUAGE_OPTIONS}
+                  value={language}
+                  options={LANGUAGE_SELECT_OPTIONS}
                   size="large"
-                  style={{ width: 148 }}
-                  dropdownStyle={{ borderRadius: 16 }}
+                  className="theme-language-select"
+                  popupClassName="theme-language-dropdown"
+                  dropdownStyle={{ borderRadius: 18, padding: 6 }}
+                  style={{ width: 176 }}
+                  onChange={(value) => dispatch(setLanguage(value))}
+                />
+                <Switch
+                  checkedChildren={<SunOutlined />}
+                  unCheckedChildren={<MoonOutlined />}
+                  checked={mytheme === 'dark'}
+                  onClick={() => dispatch(toggleTheme())}
                 />
                 {authButton}
               </div>
             ) : (
-              <Button
-                type="text"
-                icon={<MenuOutlined />}
-                onClick={() => setOpen(true)}
-                style={{
-                  color: '#102a43',
-                  width: 46,
-                  height: 46,
-                  borderRadius: 14,
-                  background: 'rgba(255,255,255,0.92)',
-                  border: '1px solid rgba(148,163,184,0.14)',
-                }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Switch
+                  checkedChildren={<SunOutlined />}
+                  unCheckedChildren={<MoonOutlined />}
+                  checked={mytheme === 'dark'}
+                  onClick={() => dispatch(toggleTheme())}
+                  size="small"
+                />
+                <Button
+                  type="text"
+                  icon={<MenuOutlined />}
+                  onClick={() => setOpen(true)}
+                  style={{
+                    color: token.colorText,
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    background: token.colorBgContainer,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                  }}
+                />
+              </div>
             )}
           </motion.div>
         </Header>
@@ -220,7 +266,7 @@ export const GuestLayout = () => {
           <TransitionGroup>
             <SwitchTransition>
               <CSSTransition
-                key={`css-transition-${location.key}`}
+                key={`css-transition-${location.key}-${language}`}
                 nodeRef={nodeRef}
                 onEnter={() => setIsLoading(true)}
                 onEntered={() => setIsLoading(false)}
@@ -241,9 +287,9 @@ export const GuestLayout = () => {
 
         <Footer
           style={{
-            background: '#fffaf4',
+            background: 'var(--footer-bg)',
             padding: '28px 20px 36px',
-            borderTop: '1px solid rgba(148,163,184,0.12)',
+            borderTop: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
           <div
@@ -258,19 +304,19 @@ export const GuestLayout = () => {
             }}
           >
             <div>
-              <Title level={4} style={{ color: '#102a43', margin: 0 }}>
-                IBMS masofaviy taʼlim platformasi
+              <Title level={4} style={{ color: token.colorText, margin: 0 }}>
+                {t('footer.platformTitle')}
               </Title>
-              <Text style={{ color: '#486581' }}>
-                Kasbiy rivojlanish uchun kurslar, mavzular va testlar yagona tizimda.
+              <Text style={{ color: token.colorTextSecondary }}>
+                {t('footer.platformSubtitle')}
               </Text>
             </div>
             <Space wrap size="middle">
-              {NAV_ITEMS.map((item) => (
+              {navItems.map((item) => (
                 <a
                   key={item.label}
                   href={item.href}
-                  style={{ color: '#102a43', textDecoration: 'none' }}
+                  style={{ color: token.colorText, textDecoration: 'none' }}
                 >
                   {item.label}
                 </a>
@@ -281,33 +327,33 @@ export const GuestLayout = () => {
       </Layout>
 
       <Drawer
-        title="Navigatsiya"
+        title={t('nav.navigation')}
         placement="right"
         onClose={() => setOpen(false)}
         open={open}
         styles={{
           body: {
             padding: 20,
-            background:
-              'linear-gradient(180deg, #fffaf4 0%, #eef7ff 100%)',
+            background: token.colorBgLayout,
           },
           header: {
-            background:
-              'linear-gradient(180deg, #fffaf4 0%, #eef7ff 100%)',
-            color: '#102a43',
-            borderBottom: '1px solid rgba(148,163,184,0.12)',
+            background: token.colorBgLayout,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
           },
         }}
       >
         <Space direction="vertical" size={14} style={{ width: '100%' }}>
           <Select
-            defaultValue="uz-latn"
-            options={LANGUAGE_OPTIONS}
+            value={language}
+            options={LANGUAGE_SELECT_OPTIONS}
             size="large"
+            className="theme-language-select"
+            popupClassName="theme-language-dropdown"
             style={{ width: '100%' }}
-            dropdownStyle={{ borderRadius: 16 }}
+            dropdownStyle={{ borderRadius: 18, padding: 6 }}
+            onChange={(value) => dispatch(setLanguage(value))}
           />
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <a
               key={item.label}
               href={item.href}
@@ -321,9 +367,9 @@ export const GuestLayout = () => {
                   height: 48,
                   borderRadius: 16,
                   justifyContent: 'flex-start',
-                  color: '#102a43',
-                  background: 'rgba(255,255,255,0.92)',
-                  borderColor: 'rgba(148,163,184,0.14)',
+                  color: token.colorText,
+                  background: token.colorBgContainer,
+                  borderColor: token.colorBorderSecondary,
                 }}
               >
                 {item.label}

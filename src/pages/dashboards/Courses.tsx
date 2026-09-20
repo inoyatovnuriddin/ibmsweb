@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DeleteOutlined,
   EditOutlined,
@@ -35,8 +35,10 @@ type Course = {
   id: string;
   titleuz: string;
   titleru: string;
+  titleeng?: string;
   descriptionuz: string;
   descriptionru: string;
+  descriptioneng?: string;
   instructor: string;
 };
 
@@ -47,6 +49,7 @@ export const DashboardCoursesPage = () => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
   const [pagination, setPagination] = useState({
     current: 1,
@@ -105,8 +108,15 @@ export const DashboardCoursesPage = () => {
   };
 
   const handleModalOk = async () => {
+    let values;
     try {
-      const values = await form.validateFields();
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+
+    setSaving(true);
+    try {
       const data = {
         ...values,
         id: editingCourse ? editingCourse.id : null,
@@ -125,30 +135,35 @@ export const DashboardCoursesPage = () => {
       fetchCourses(pagination.current, pagination.pageSize, searchTerm);
     } catch {
       message.error('Saqlashda xatolik yuz berdi');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = (id: string) => {
-    if (
-      window.confirm(
-        'Kurs o‘chirilsa, unga tegishli mavzular va videolar ham o‘chishi mumkin. Davom etilsinmi?'
-      )
-    ) {
-      apiClient
-        .delete(`/v1/course/delete`, { params: { id } })
-        .then(() => {
-          message.success('Kurs o‘chirildi');
-          fetchCourses(pagination.current, pagination.pageSize, searchTerm);
-        })
-        .catch(() => {
-          message.error('O‘chirishda xatolik yuz berdi');
-        });
-    }
+    apiClient
+      .delete(`/v1/course/delete`, { params: { id } })
+      .then(() => {
+        message.success('Kurs o‘chirildi');
+        fetchCourses(pagination.current, pagination.pageSize, searchTerm);
+      })
+      .catch(() => {
+        message.error('O‘chirishda xatolik yuz berdi');
+      });
   };
 
-  const searchCourses = (value: string) => {
+  const searchTimer = useRef<number>();
+
+  const searchCourses = (value: string, immediate = false) => {
     setSearchTerm(value);
-    fetchCourses(1, pagination.pageSize, value);
+    window.clearTimeout(searchTimer.current);
+    if (immediate) {
+      fetchCourses(1, pagination.pageSize, value);
+      return;
+    }
+    searchTimer.current = window.setTimeout(() => {
+      fetchCourses(1, pagination.pageSize, value);
+    }, 450);
   };
 
   const columns: ColumnsType<Course> = [
@@ -175,8 +190,15 @@ export const DashboardCoursesPage = () => {
       key: 'description',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text>{record.descriptionru}</Text>
-          <Text style={{ color: '#64748b' }}>{record.descriptionuz}</Text>
+          <Text ellipsis={{ tooltip: record.descriptionru }} style={{ maxWidth: 400 }}>
+            {record.descriptionru}
+          </Text>
+          <Text
+            ellipsis={{ tooltip: record.descriptionuz }}
+            style={{ color: '#64748b', maxWidth: 400 }}
+          >
+            {record.descriptionuz}
+          </Text>
         </Space>
       ),
       width: 420,
@@ -219,9 +241,11 @@ export const DashboardCoursesPage = () => {
           </Tooltip>
           <Popconfirm
             title="Kurs o‘chirilsinmi?"
+            description="Kursga tegishli mavzular, videolar va testlar ham o‘chishi mumkin."
             onConfirm={() => handleDelete(record.id)}
-            okText="Ha"
+            okText="Ha, o‘chirilsin"
             cancelText="Yo‘q"
+            okButtonProps={{ danger: true }}
           >
             <Button danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -258,7 +282,7 @@ export const DashboardCoursesPage = () => {
             <Input.Search
               placeholder="Kurs nomi yoki tavsifi bo‘yicha qidiring"
               allowClear
-              onSearch={searchCourses}
+              onSearch={(value) => searchCourses(value, true)}
               onChange={(e) => searchCourses(e.target.value)}
               style={{ width: 340, maxWidth: '100%' }}
             />
@@ -269,7 +293,10 @@ export const DashboardCoursesPage = () => {
             columns={columns}
             rowKey="id"
             scroll={{ x: 1100 }}
-            pagination={pagination}
+            pagination={{
+              ...pagination,
+              showTotal: (total) => `Jami: ${total} ta kurs`,
+            }}
             loading={loading}
             onChange={handleTableChange}
           />
@@ -284,6 +311,7 @@ export const DashboardCoursesPage = () => {
             setEditingCourse(null);
           }}
           onOk={handleModalOk}
+          confirmLoading={saving}
           title={editingCourse ? 'Kursni tahrirlash' : 'Yangi kurs qo‘shish'}
           okText={editingCourse ? 'Saqlash' : 'Qo‘shish'}
           cancelText="Bekor qilish"
@@ -305,6 +333,9 @@ export const DashboardCoursesPage = () => {
             >
               <Input />
             </Form.Item>
+            <Form.Item label="Kurs nomi ingliz tilida (diplom uchun)" name="titleeng">
+              <Input placeholder="Masalan: FORKLIFT DRIVER" />
+            </Form.Item>
             <Form.Item
               label="Ruscha tavsif"
               name="descriptionru"
@@ -317,6 +348,9 @@ export const DashboardCoursesPage = () => {
               name="descriptionuz"
               rules={[{ required: true, message: 'Tavsifni kiriting' }]}
             >
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item label="Inglizcha tavsif" name="descriptioneng">
               <Input.TextArea rows={3} />
             </Form.Item>
             <Form.Item

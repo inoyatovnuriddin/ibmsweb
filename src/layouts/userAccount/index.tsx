@@ -1,19 +1,19 @@
 import {
   Avatar,
   Button,
-  Descriptions,
-  DescriptionsProps,
   Drawer,
   Dropdown,
   Grid,
   Layout,
   message,
   Space,
-  Tag,
+  Switch,
+  theme,
   Tooltip,
   Typography,
   Upload,
 } from 'antd';
+import ImgCrop from 'antd-img-crop';
 import { Card, Logo } from '../../components';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -25,7 +25,8 @@ import {
 import './styles.css';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../../services/api.ts';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { toggleTheme } from '../../redux/theme/themeSlice.ts';
 import {
   AppstoreOutlined,
   EditOutlined,
@@ -37,14 +38,17 @@ import {
   LogoutOutlined,
   MenuOutlined,
   MessageOutlined,
+  MoonOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
+  SunOutlined,
   UploadOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { RcFile, UploadChangeParam } from 'antd/es/upload';
 import type { RootState } from '../../redux/store.ts';
 import type { CurrentUser } from '../../redux/auth/authApi.ts';
+import { FiMail, FiPhone, FiShield, FiUser } from 'react-icons/fi';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Header, Content } = Layout;
 const { Text, Title } = Typography;
@@ -57,6 +61,7 @@ interface User {
   email: string;
   phoneNumber: string;
   status: 'Active' | 'Confirm' | 'Block';
+  userImage?: string | null;
   roles: string[];
 }
 
@@ -71,34 +76,54 @@ const profileIcons: Record<string, ReactNode> = {
   feedback: <MessageOutlined />,
 };
 
+const profileLabelKeyByTitle: Record<string, string> = {
+  details: 'user.details',
+  security: 'user.security',
+  'my-learning': 'user.myLearning',
+  preferences: 'user.preferences',
+  information: 'user.personalInformation',
+  activity: 'user.activity',
+  actions: 'user.actions',
+  help: 'user.help',
+  feedback: 'user.feedback',
+};
+
+const translateStatusLabel = (status: User['status'] | undefined, t: (key: string) => string) => {
+  if (status === 'Active') return t('user.statusActive');
+  if (status === 'Confirm') return t('user.statusConfirm');
+  if (status === 'Block') return t('user.statusBlocked');
+  return t('common.unknown');
+};
+
 export const UserAccountLayout = () => {
   const screens = useBreakpoint();
   const isDesktop = !!screens.xl;
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const { mytheme } = useSelector((state: RootState) => state.theme);
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const { token } = theme.useToken();
+  const { language, t } = useAppTranslation();
   const [user, setUser] = useState<User>();
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  const handleImageChange = (info: UploadChangeParam) => {
-    const file = info.file.originFileObj as RcFile;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProfileImageUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const profileImageUrl = user?.userImage || currentUser?.userImage || null;
 
   useEffect(() => {
     getMe();
     setMobileSidebarOpen(false);
-  }, [location.pathname]);
+  }, [language, location.pathname]);
 
   useEffect(() => {
     if (!currentUser) return;
 
-    setUser(mapCurrentUserToLayoutUser(currentUser));
+    // Merge redux user without dropping the richer /v1/users/account data (esp. userImage,
+    // which is populated even before the backend /auth/me change is deployed).
+    setUser((prev) => {
+      const mapped = mapCurrentUserToLayoutUser(currentUser);
+      return { ...mapped, userImage: currentUser.userImage || prev?.userImage || null };
+    });
   }, [currentUser]);
 
   const getMe = async () => {
@@ -106,59 +131,79 @@ export const UserAccountLayout = () => {
     setUser(res.data);
   };
 
-  const descriptionItems: DescriptionsProps['items'] = useMemo(
-    () => [
-      {
-        key: 'full-name',
-        label: 'F.I.Sh.',
-        children: <span>{`${user?.firstname || ''} ${user?.lastname || ''}`}</span>,
-      },
-      {
-        key: 'email',
-        label: 'Email',
-        children: user?.email ? (
-          <Typography.Link href={`mailto:${user.email}`}>{user.email}</Typography.Link>
-        ) : (
-          '-'
-        ),
-      },
-      {
-        key: 'telephone',
-        label: 'Telefon',
-        children: user?.phoneNumber ? (
-          <Typography.Link href={`tel:${user.phoneNumber}`}>
-            {user.phoneNumber}
-          </Typography.Link>
-        ) : (
-          '-'
-        ),
-      },
-      {
-        key: 'status',
-        label: 'Holat',
-        children: user?.status || '-',
-      },
-    ],
-    [user]
-  );
+  /** Uploads the cropped photo as the current user's profile image, then refreshes. */
+  const uploadProfilePhoto = async (file: File) => {
+    setPhotoUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name || 'avatar.png');
+      await apiClient.post('/v1/attachment/update/profile-image', formData);
+      message.success(t('user.updatePhoto'));
+      await getMe();
+    } catch {
+      message.error(t('common.unknown'));
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+  // Only admins/super admins may change a profile photo (self or others).
+  const canEditPhoto = Boolean(
+    (currentUser?.roles || user?.roles || []).some(
+      (role) => role === 'ROLE_ADMIN' || role === 'ROLE_SUPER_ADMIN'
+    )
+  );
 
   const activeItem =
     USER_PROFILE_ITEMS.find((item) => location.pathname.includes(item.title)) ||
     USER_PROFILE_ITEMS[0];
 
+  const getProfileItemLabel = (title: string) =>
+    t(profileLabelKeyByTitle[title] || 'user.details');
+
+  const summaryDetails = useMemo(
+    () => [
+      {
+        key: 'full-name',
+        label: t('user.fullName'),
+        value: `${user?.firstname || ''} ${user?.lastname || ''}`.trim() || t('common.notProvided'),
+        icon: <FiUser />,
+        wide: true,
+      },
+      {
+        key: 'email',
+        label: t('user.email'),
+        value: user?.email || t('common.notProvided'),
+        icon: <FiMail />,
+      },
+      {
+        key: 'telephone',
+        label: t('user.phone'),
+        value: user?.phoneNumber || t('common.notProvided'),
+        icon: <FiPhone />,
+      },
+      {
+        key: 'status',
+        label: t('user.status'),
+        value: translateStatusLabel(user?.status, t),
+        icon: <FiShield />,
+      },
+    ],
+    [t, user]
+  );
+
   const profileDropdownItems = [
     {
       key: 'profile-details',
       icon: <UserOutlined />,
-      label: 'Profil',
+      label: t('dashboard.profile'),
       onClick: () => navigate('/user-profile/details'),
     },
     {
       key: 'profile-security',
       icon: <LockOutlined />,
-      label: 'Xavfsizlik',
+      label: t('user.security'),
       onClick: () => navigate('/user-profile/security'),
     },
     ...(isAdmin
@@ -166,7 +211,7 @@ export const UserAccountLayout = () => {
           {
             key: 'profile-dashboard',
             icon: <AppstoreOutlined />,
-            label: 'Dashboard',
+            label: t('user.dashboard'),
             onClick: () => navigate(PATH_DASHBOARD.users),
           },
         ]
@@ -178,10 +223,10 @@ export const UserAccountLayout = () => {
       key: 'profile-logout',
       icon: <LogoutOutlined />,
       danger: true,
-      label: 'Chiqish',
+      label: t('dashboard.logout'),
       onClick: () => {
         localStorage.clear();
-        message.success('Hisobdan chiqildi');
+        message.success(t('dashboard.logoutSuccess'));
         navigate(PATH_AUTH.signin);
       },
     },
@@ -191,7 +236,7 @@ export const UserAccountLayout = () => {
     <Card
       style={{
         borderRadius: 24,
-        boxShadow: '0 18px 42px rgba(15,23,42,0.05)',
+        boxShadow: 'var(--color-shadow-soft)',
         position: isDesktop ? 'sticky' : 'static',
         top: 108,
       }}
@@ -214,42 +259,51 @@ export const UserAccountLayout = () => {
           <Avatar
             icon={<UserOutlined />}
             size={112}
-            style={{ background: '#eff6ff', color: '#1d4ed8' }}
+            style={{ background: 'var(--color-fill-soft)', color: '#1d4ed8' }}
           />
         )}
 
         <div>
-          <Title level={4} style={{ margin: 0, color: '#102a43' }}>
-            {user ? `${user.firstname} ${user.lastname}` : 'Foydalanuvchi'}
+          <Title level={4} style={{ margin: 0, color: token.colorText }}>
+            {user ? `${user.firstname} ${user.lastname}` : t('dashboard.profile')}
           </Title>
-          <Text style={{ color: '#64748b' }}>{user?.email || 'Email mavjud emas'}</Text>
+          <Text style={{ color: token.colorTextSecondary }}>{user?.email || t('common.notProvided')}</Text>
         </div>
 
-        <Space wrap size={8} style={{ justifyContent: 'center' }}>
-          <Tag
-            style={{
-              margin: 0,
-              borderRadius: 999,
-              padding: '6px 12px',
-              background: '#eff6ff',
-              color: '#1d4ed8',
-              border: '1px solid rgba(29,78,216,0.12)',
-            }}
+        {canEditPhoto ? (
+          <ImgCrop
+            rotationSlider
+            showGrid
+            aspect={1}
+            modalTitle={t('user.updatePhoto')}
           >
-            {user?.status || 'Status'}
-          </Tag>
-          {isAdmin ? <Tag color="gold">Admin</Tag> : null}
-        </Space>
-
-        <Upload
-          showUploadList={false}
-          beforeUpload={() => false}
-          onChange={handleImageChange}
-        >
-          <Button icon={<UploadOutlined />} style={{ borderRadius: 12 }}>
-            Rasmni yangilash
-          </Button>
-        </Upload>
+            <Upload
+              accept="image/*"
+              maxCount={1}
+              showUploadList={false}
+              beforeUpload={(file) => {
+                if (!file.type.startsWith('image/')) {
+                  message.error(t('user.updatePhoto'));
+                  return Upload.LIST_IGNORE;
+                }
+                if (file.size / 1024 / 1024 >= 5) {
+                  message.error('≤ 5MB');
+                  return Upload.LIST_IGNORE;
+                }
+                void uploadProfilePhoto(file);
+                return false;
+              }}
+            >
+              <Button
+                icon={<UploadOutlined />}
+                loading={photoUploading}
+                style={{ borderRadius: 12 }}
+              >
+                {t('user.updatePhoto')}
+              </Button>
+            </Upload>
+          </ImgCrop>
+        ) : null}
       </div>
 
       <div style={{ paddingTop: 18 }}>
@@ -257,13 +311,13 @@ export const UserAccountLayout = () => {
           style={{
             display: 'block',
             marginBottom: 12,
-            color: '#64748b',
+            color: token.colorTextSecondary,
             fontSize: 12,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
           }}
         >
-          Profil bo‘limlari
+          {t('user.sectionTitle')}
         </Text>
 
         <div className="user-profile-menu-list">
@@ -278,7 +332,7 @@ export const UserAccountLayout = () => {
                 <span className="user-profile-menu-icon">
                   {profileIcons[item.title] || <InfoCircleOutlined />}
                 </span>
-                <span>{item.label}</span>
+                <span>{getProfileItemLabel(item.title)}</span>
               </div>
             );
 
@@ -286,7 +340,7 @@ export const UserAccountLayout = () => {
               return (
                 <Tooltip
                   key={item.title}
-                  title="Bu bo‘lim keyinroq faollashtiriladi"
+                  title={t('user.pendingSection')}
                   placement={isDesktop ? 'right' : 'top'}
                 >
                   <div>{content}</div>
@@ -314,8 +368,7 @@ export const UserAccountLayout = () => {
     <Layout
       style={{
         minHeight: '100vh',
-        background:
-          'radial-gradient(circle at top left, rgba(59,130,246,0.06), transparent 20%), linear-gradient(180deg, #fffdf8 0%, #f8fafc 100%)',
+        background: token.colorBgLayout,
       }}
     >
       <Header
@@ -326,8 +379,10 @@ export const UserAccountLayout = () => {
           height: 'auto',
           lineHeight: 'normal',
           padding: isDesktop ? '18px 22px' : '16px',
-          background: 'rgba(255,255,255,0.92)',
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
+          background: mytheme === 'dark'
+            ? 'var(--header-shell-bg)'
+            : 'var(--header-shell-bg)',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
           backdropFilter: 'blur(14px)',
         }}
       >
@@ -342,19 +397,19 @@ export const UserAccountLayout = () => {
             ) : null}
             <Logo color="blue" asLink href={PATH_LANDING.root} imgSize={{ h: isDesktop ? 54 : 44 }} />
             <div className="profile-topbar-title">
-              <Text style={{ color: '#64748b', fontSize: isDesktop ? 15 : 13 }}>Shaxsiy kabinet</Text>
+              <Text style={{ color: token.colorTextSecondary, fontSize: isDesktop ? 15 : 13 }}>{t('user.personalCabinet')}</Text>
               <Title
                 level={4}
                 style={{
                   margin: '2px 0 0',
-                  color: '#102a43',
+                  color: token.colorText,
                   whiteSpace: isDesktop ? 'nowrap' : 'normal',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   fontSize: isDesktop ? undefined : 18,
                 }}
               >
-                {activeItem.label}
+                {getProfileItemLabel(activeItem.title)}
               </Title>
             </div>
           </div>
@@ -362,9 +417,17 @@ export const UserAccountLayout = () => {
           <Space size={10} wrap className="profile-topbar-actions">
             <Link to={PATH_LANDING.root}>
               <Button icon={<HomeOutlined />} className="profile-topbar-action-btn">
-                Bosh sahifa
+                {t('nav.home')}
               </Button>
             </Link>
+
+            <Switch
+              checkedChildren={<SunOutlined />}
+              unCheckedChildren={<MoonOutlined />}
+              checked={mytheme === 'dark'}
+              onClick={() => dispatch(toggleTheme())}
+              style={{ flexShrink: 0 }}
+            />
 
             <Dropdown menu={{ items: profileDropdownItems }} trigger={['click']}>
               <Button
@@ -378,11 +441,11 @@ export const UserAccountLayout = () => {
                     size={isDesktop ? 38 : 34}
                   />
                   <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
-                    <Text style={{ display: 'block', color: '#102a43', fontSize: isDesktop ? 14 : 13 }}>
-                      {user ? `${user.firstname} ${user.lastname}` : 'Profil'}
+                    <Text style={{ display: 'block', color: token.colorText, fontSize: isDesktop ? 14 : 13 }}>
+                      {user ? `${user.firstname} ${user.lastname}` : t('dashboard.profile')}
                     </Text>
-                    <Text style={{ color: '#64748b', fontSize: 12 }}>
-                      {isDesktop ? 'Menyu' : 'Profil menyusi'}
+                    <Text style={{ color: token.colorTextSecondary, fontSize: 12 }}>
+                      {isDesktop ? t('user.menu') : t('user.profileMenu')}
                     </Text>
                   </div>
                 </Space>
@@ -399,7 +462,7 @@ export const UserAccountLayout = () => {
           onClose={() => setMobileSidebarOpen(false)}
           width={340}
           closable={false}
-          bodyStyle={{ padding: 16, background: '#f8fafc' }}
+          bodyStyle={{ padding: 16, background: token.colorBgLayout }}
         >
           {renderSidebar()}
         </Drawer>
@@ -414,27 +477,64 @@ export const UserAccountLayout = () => {
               className="user-profile-summary"
               style={{
                 borderRadius: 24,
-                boxShadow: '0 18px 42px rgba(15,23,42,0.05)',
+                boxShadow: 'var(--color-shadow-soft)',
               }}
             >
               <div className="user-profile-summary-grid">
-                <div>
-                  <Text style={{ color: '#64748b' }}>Aktiv bo‘lim</Text>
-                  <Title level={3} style={{ margin: '6px 0 0', color: '#102a43' }}>
-                    {activeItem.label}
+                <div className="user-profile-summary-main">
+                  <Text className="user-profile-summary-eyebrow">{t('user.activeSection')}</Text>
+                  <Title level={3} style={{ margin: '4px 0 6px', color: token.colorText }}>
+                    {getProfileItemLabel(activeItem.title)}
                   </Title>
+                  <Text className="user-profile-summary-description">
+                    {t('user.summaryDescription')}
+                  </Text>
+
+                  <div className="user-profile-summary-pills">
+                    <span className="user-profile-summary-pill is-primary">
+                      <InfoCircleOutlined />
+                      {getProfileItemLabel(activeItem.title)}
+                    </span>
+                    <span
+                      className={`user-profile-summary-pill ${
+                        user?.status === 'Active' ? 'is-success' : 'is-neutral'
+                      }`}
+                    >
+                      <SafetyCertificateOutlined />
+                      {user?.status === 'Active' ? t('user.activeProfile') : user?.status || t('user.statusUnknown')}
+                    </span>
+                    {isAdmin ? (
+                      <span className="user-profile-summary-pill is-warning">
+                        <AppstoreOutlined />
+                        {t('dashboard.admin')}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                <div>
-                  <Descriptions
-                    items={descriptionItems}
-                    column={{ xs: 1, sm: 2, md: 2 }}
-                  />
+
+                <div className="user-profile-summary-details">
+                  {summaryDetails.map((item) => (
+                    <div
+                      key={item.key}
+                      className={`user-profile-summary-detail-item${
+                        item.wide ? ' is-wide' : ''
+                      }`}
+                    >
+                      <div className="user-profile-summary-detail-icon">{item.icon}</div>
+                      <div className="user-profile-summary-detail-copy">
+                        <Text className="user-profile-summary-detail-label">{item.label}</Text>
+                        <Text className="user-profile-summary-detail-value">{item.value}</Text>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </Card>
 
             <div style={{ marginTop: 24 }}>
-              <Outlet />
+              <div key={`${location.pathname}-${language}`}>
+                <Outlet />
+              </div>
             </div>
           </main>
         </div>
@@ -453,5 +553,6 @@ const mapCurrentUserToLayoutUser = (user: CurrentUser): User => ({
     user.status === 'Confirm' || user.status === 'Block'
       ? user.status
       : 'Active',
+  userImage: user.userImage || null,
   roles: user.roles || [],
 });

@@ -10,25 +10,37 @@ import {
   Select,
   Space,
   Spin,
-  Tag,
+  theme,
   Typography,
 } from 'antd';
 import {
   BookOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
+  LockOutlined,
+  LoginOutlined,
   PlayCircleOutlined,
   ProfileOutlined,
   ReadOutlined,
-  RightOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Container } from '../../components';
-import { PATH_AUTH } from '../../constants';
-import { getCourses, isAuthenticated } from './courseApi.ts';
+import { PATH_AUTH, PATH_COURSE } from '../../constants';
+import {
+  getCourses,
+  getMyEffectiveCourseAccess,
+  isAuthenticated,
+} from './courseApi.ts';
 import { buildCourseCatalogItems } from './courseUtils.ts';
-import type { CourseCatalogItem, CourseRecord } from './types.ts';
+import type {
+  CourseCatalogItem,
+  CourseRecord,
+  MyEffectiveCourseAccessResponse,
+} from './types.ts';
 import './styles.css';
+import { TbCaretRightFilled } from 'react-icons/tb';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -37,16 +49,22 @@ const PAGE_SIZE = 8;
 type SortValue = 'popular' | 'alphabetical';
 
 export const CoursesPage = () => {
+  const {
+    token: { colorText, colorTextSecondary },
+  } = theme.useToken();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { t, language } = useAppTranslation();
   const [messageApi, contextHolder] = message.useMessage();
   const [courses, setCourses] = useState<CourseRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
+  const [accessLoading, setAccessLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortValue>('popular');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCourses, setTotalCourses] = useState(0);
+  const [effectiveAccess, setEffectiveAccess] =
+    useState<MyEffectiveCourseAccessResponse | null>(null);
   const searchInitialized = useRef(false);
 
   const isAccessDeniedError = (error: unknown) =>
@@ -54,10 +72,10 @@ export const CoursesPage = () => {
     error !== null &&
     'response' in error &&
     ((error as { response?: { status?: number } }).response?.status === 403 ||
-      (error as { response?: { status?: number } }).response?.status === 404);
+      (error as { response?: { status?: number } }).response?.status === 404 ||
+      (error as { response?: { status?: number } }).response?.status === 401);
 
   const fetchCatalogPage = async (page = 1, query = '') => {
-    if (!isAuthenticated()) return;
     setPageLoading(true);
     try {
       const response = await getCourses({
@@ -70,11 +88,12 @@ export const CoursesPage = () => {
       setCurrentPage(page);
     } catch (error) {
       if (isAccessDeniedError(error)) {
-        messageApi.error("Kurslar katalogini ko‘rish uchun avval tizimga kiring.");
-        navigate(PATH_AUTH.signin, { replace: true });
+        setCourses([]);
+        setTotalCourses(0);
+        messageApi.error(t('courses.msg.loadDenied'));
         return;
       }
-      messageApi.error('Kurslarni yuklashda xatolik yuz berdi.');
+      messageApi.error(t('courses.msg.loadError'));
     } finally {
       setPageLoading(false);
     }
@@ -84,35 +103,28 @@ export const CoursesPage = () => {
     let isMounted = true;
 
     const bootstrapCatalog = async () => {
-      if (!isAuthenticated()) {
-        messageApi.warning('Kurslarni ko‘rish uchun avval tizimga kiring.');
-        navigate(PATH_AUTH.signin, {
-          state: { from: `${location.pathname}${location.search}` },
-          replace: true,
-        });
-        return;
-      }
-
       setLoading(true);
       try {
         const coursePage = await getCourses({
           start: 0,
           limit: PAGE_SIZE,
-          searchKey: '',
+          searchKey: searchTerm.trim(),
         });
 
         if (!isMounted) return;
 
         setCourses(coursePage.list || []);
         setTotalCourses(coursePage.count || 0);
+        setCurrentPage(1);
       } catch (error) {
         if (!isMounted) return;
         if (isAccessDeniedError(error)) {
-          messageApi.error("Kurslar katalogini ko‘rish uchun avval tizimga kiring.");
-          navigate(PATH_AUTH.signin, { replace: true });
+          setCourses([]);
+          setTotalCourses(0);
+          messageApi.error(t('courses.msg.loadDenied'));
           return;
         }
-        messageApi.error('Kurslar katalogini tayyorlashda xatolik yuz berdi.');
+        messageApi.error(t('courses.msg.bootstrapError'));
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -125,7 +137,45 @@ export const CoursesPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [location.pathname, location.search, navigate]);
+  // Refetch when language changes so backend returns localized titles/descriptions
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const bootstrapEffectiveAccess = async () => {
+      if (!isAuthenticated()) {
+        if (isMounted) {
+          setEffectiveAccess(null);
+          setAccessLoading(false);
+        }
+        return;
+      }
+
+      setAccessLoading(true);
+      try {
+        const payload = await getMyEffectiveCourseAccess();
+        if (!isMounted) return;
+        setEffectiveAccess(payload);
+      } catch {
+        if (!isMounted) return;
+        setEffectiveAccess(null);
+        messageApi.error(t('courses.msg.accessError'));
+      } finally {
+        if (isMounted) {
+          setAccessLoading(false);
+        }
+      }
+    };
+
+    bootstrapEffectiveAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messageApi]);
 
   useEffect(() => {
     if (!searchInitialized.current) {
@@ -141,7 +191,7 @@ export const CoursesPage = () => {
   }, [searchTerm]);
 
   const catalogItems = useMemo(() => {
-    const normalized = buildCourseCatalogItems(courses, [], [], []);
+    const normalized = buildCourseCatalogItems(courses, [], [], [], language);
 
     if (sortBy === 'alphabetical') {
       return [...normalized].sort((a, b) => a.title.localeCompare(b.title));
@@ -153,52 +203,71 @@ export const CoursesPage = () => {
         b.metrics.moduleCount -
         (a.metrics.lessonCount + a.metrics.moduleCount)
     );
-  }, [courses, sortBy]);
+  }, [courses, language, sortBy]);
+
+  const accessibleCourseIds = useMemo(
+    () =>
+      new Set(
+        (effectiveAccess?.effectiveCourses || []).map((course) => course.courseId)
+      ),
+    [effectiveAccess]
+  );
+
+  const handleOpenCourse = (courseId: string) => {
+    if (!isAuthenticated()) {
+      navigate(PATH_AUTH.signin, {
+        state: { from: PATH_COURSE.details(courseId) },
+      });
+      return;
+    }
+
+    if (!accessibleCourseIds.has(courseId)) {
+      messageApi.warning(t('courses.msg.noAccess'));
+      return;
+    }
+
+    navigate(PATH_COURSE.details(courseId));
+  };
 
   return (
     <div className="course-catalog-page">
       {contextHolder}
       <Helmet>
-        <title>Kurslar | IBMS</title>
+        <title>{t('courses.page.title')}</title>
       </Helmet>
 
       <Container style={{ padding: '36px 20px 72px' }}>
         <Space direction="vertical" size={20} style={{ width: '100%' }}>
-          <Card className="course-catalog-toolbar-card" bodyStyle={{ padding: 24 }}>
-            <div className="course-catalog-toolbar">
-              <div className="course-catalog-toolbar-copy">
-                <Tag className="course-catalog-toolbar-tag">Kurslar</Tag>
-                <Title level={2} style={{ margin: '14px 0 10px', color: '#102a43' }}>
-                  O‘zingizga mos kursni tanlang
-                </Title>
-                <Paragraph style={{ margin: 0, color: '#52606d', maxWidth: 680 }}>
-                  Kurslar sodda tartibda joylashtirilgan: kursni tanlaysiz, keyin
-                  mavzular bo‘yicha video, material va testlarni bosqichma-bosqich
-                  o‘tasiz.
-                </Paragraph>
-              </div>
-
-              <div className="course-catalog-toolbar-actions">
-                <Input
-                  allowClear
-                  size="large"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Kurs nomi bo‘yicha qidiring"
-                  prefix={<SearchOutlined />}
-                />
-                <Select
-                  size="large"
-                  value={sortBy}
-                  onChange={setSortBy}
-                  options={[
-                    { label: 'Tavsiya etilgan', value: 'popular' },
-                    { label: 'Alifbo bo‘yicha', value: 'alphabetical' },
-                  ]}
-                />
-              </div>
+          <div className="course-catalog-header">
+            <div className="course-catalog-header-copy">
+              <Title level={2} style={{ margin: '0 0 8px', color: colorText }}>
+                {t('courses.toolbar.title')}
+              </Title>
+              <Paragraph style={{ margin: 0, color: colorTextSecondary, maxWidth: 640 }}>
+                {t('courses.toolbar.subtitle')}
+              </Paragraph>
             </div>
-          </Card>
+
+            <div className="course-catalog-header-controls">
+              <Input
+                allowClear
+                size="large"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder={t('courses.toolbar.searchPlaceholder')}
+                prefix={<SearchOutlined />}
+              />
+              <Select
+                size="large"
+                value={sortBy}
+                onChange={setSortBy}
+                options={[
+                  { label: t('courses.toolbar.sort.recommended'), value: 'popular' },
+                  { label: t('courses.toolbar.sort.alphabetical'), value: 'alphabetical' },
+                ]}
+              />
+            </div>
+          </div>
 
           {loading ? (
             <Card className="course-preview-card">
@@ -215,7 +284,7 @@ export const CoursesPage = () => {
           ) : catalogItems.length === 0 ? (
             <Card className="course-preview-card">
               <Empty
-                description="Qidiruv bo‘yicha kurs topilmadi"
+                description={t('courses.empty.noResults')}
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               />
             </Card>
@@ -223,7 +292,14 @@ export const CoursesPage = () => {
             <>
               <div className="course-catalog-list">
                 {catalogItems.map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <CourseCard
+                    key={course.id}
+                    course={course}
+                    onOpenCourse={handleOpenCourse}
+                    isGuest={!isAuthenticated()}
+                    hasAccess={accessibleCourseIds.has(course.id)}
+                    accessLoading={accessLoading}
+                  />
                 ))}
               </div>
 
@@ -244,7 +320,44 @@ export const CoursesPage = () => {
   );
 };
 
-const CourseCard = ({ course }: { course: CourseCatalogItem }) => {
+const HERO_VARIANT_COUNT = 5;
+
+const heroVariantOf = (id: string) => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % HERO_VARIANT_COUNT;
+};
+
+const initialsOf = (title: string) => {
+  const words = title
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (words.length === 0) return 'K';
+  return words.map((word) => word[0]?.toUpperCase() || '').join('');
+};
+
+const CourseCard = ({
+  course,
+  onOpenCourse,
+  isGuest,
+  hasAccess,
+  accessLoading,
+}: {
+  course: CourseCatalogItem;
+  onOpenCourse: (courseId: string) => void;
+  isGuest: boolean;
+  hasAccess: boolean;
+  accessLoading: boolean;
+}) => {
+  const {
+    token: { colorText, colorTextSecondary },
+  } = theme.useToken();
+  const { t } = useAppTranslation();
+
   const hasKnownStructure =
     course.metrics.moduleCount +
       course.metrics.videoCount +
@@ -252,87 +365,123 @@ const CourseCard = ({ course }: { course: CourseCatalogItem }) => {
       course.metrics.testCount >
     0;
 
+  // Tavsif sarlavhaning aynan o'zi bo'lsa, umumiy tavsif ko'rsatiladi
+  const descriptionText =
+    course.description.trim() &&
+    course.description.trim().toLowerCase() !== course.title.trim().toLowerCase()
+      ? course.description
+      : t('courses.fallback.description');
+
+  const ctaLabel = isGuest
+    ? t('courses.card.cta.signin')
+    : hasAccess
+      ? t('courses.card.cta.start')
+      : t('courses.card.cta.noAccess');
+
+  const ctaIcon = isGuest ? <LoginOutlined /> : hasAccess ? <TbCaretRightFilled /> : <LockOutlined />;
+
+  const metricItems: Array<{ icon: ReactNode; value: number; label: string }> = [
+    {
+      icon: <FolderOpenOutlined />,
+      value: course.metrics.moduleCount,
+      label: t('courses.metrics.module'),
+    },
+    {
+      icon: <PlayCircleOutlined />,
+      value: course.metrics.videoCount,
+      label: t('courses.metrics.video'),
+    },
+    {
+      icon: <FileTextOutlined />,
+      value: course.metrics.materialCount,
+      label: t('courses.metrics.material'),
+    },
+    {
+      icon: <ReadOutlined />,
+      value: course.metrics.testCount,
+      label: t('courses.metrics.test'),
+    },
+  ].filter((item) => item.value > 0);
+
   return (
     <Card
       hoverable
       className="course-preview-card course-catalog-card"
       bodyStyle={{ padding: 0, height: '100%' }}
+      onClick={() => onOpenCourse(course.id)}
     >
+      <div className={`course-card-hero course-card-hero--v${heroVariantOf(course.id)}`}>
+        <div className="course-card-hero-initials">{initialsOf(course.title)}</div>
+        <div className="course-card-hero-icon">
+          <BookOutlined />
+        </div>
+        {!isGuest && (
+          <div className={`course-card-access-badge ${hasAccess ? 'is-granted' : 'is-locked'}`}>
+            {hasAccess ? t('courses.card.badge.open') : t('courses.card.badge.locked')}
+          </div>
+        )}
+      </div>
       <div className="course-catalog-card-body">
         <div className="course-catalog-card-head">
-          <div className="course-catalog-card-icon">
-            <BookOutlined />
-          </div>
-          <Space direction="vertical" size={8} style={{ width: '100%' }}>
-            <Space wrap size={8}>
-              <Tag className="course-catalog-card-tag">Kurs</Tag>
-              {hasKnownStructure ? (
-                <Tag className="course-catalog-card-tag">
-                  {course.metrics.moduleCount} modul
-                </Tag>
-              ) : null}
-            </Space>
-            <Title level={4} style={{ margin: 0, color: '#102a43' }}>
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Title
+              level={4}
+              style={{ margin: 0, color: colorText }}
+              ellipsis={{ rows: 2, tooltip: course.title }}
+            >
               {course.title}
             </Title>
-            <Text style={{ color: '#64748b' }}>
-              <ProfileOutlined /> O‘qituvchi: {course.instructor}
+            <Text style={{ color: colorTextSecondary, fontSize: 13 }}>
+              <ProfileOutlined /> {t('courses.card.instructor')} {course.instructor}
             </Text>
           </Space>
         </div>
 
         <div className="course-catalog-card-content">
           <Paragraph
-            ellipsis={{ rows: 3 }}
+            ellipsis={{ rows: 2 }}
             className="course-catalog-card-description"
-            style={{ color: '#52606d', marginBottom: 18 }}
+            style={{ color: colorTextSecondary, marginBottom: 14 }}
           >
-            {course.description}
+            {descriptionText}
           </Paragraph>
 
-          <div className="course-catalog-card-metrics">
-            <MetricChip icon={<FolderOpenOutlined />} label={`${course.metrics.moduleCount} modul`} />
-            <MetricChip icon={<PlayCircleOutlined />} label={`${course.metrics.videoCount} video`} />
-            <MetricChip icon={<ProfileOutlined />} label={`${course.metrics.materialCount} material`} />
-            <MetricChip icon={<ReadOutlined />} label={`${course.metrics.testCount} test`} />
-          </div>
-
-          <div className="course-catalog-card-note">
-            <Text style={{ color: '#52606d' }}>
-              {hasKnownStructure
-                ? 'Kurs ichidagi darslar bosqichma-bosqich ochiladi.'
-                : 'Kurs tarkibi ochilganda ko‘rinadi.'}
-            </Text>
-          </div>
+          {hasKnownStructure ? (
+            <div className="course-catalog-card-metrics">
+              {metricItems.map((item) => (
+                <div className="course-metric-chip" key={item.label}>
+                  <span className="course-metric-chip-icon">{item.icon}</span>
+                  <span className="course-metric-chip-value">{item.value}</span>
+                  <span className="course-metric-chip-label">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="course-catalog-card-note">
+              <Text style={{ color: colorTextSecondary, fontSize: 13 }}>
+                {t('courses.card.lessonsHidden')}
+              </Text>
+            </div>
+          )}
 
           <div className="course-catalog-card-footer">
-            <Link to={`/course/${course.id}`}>
-              <Button
-                type="primary"
-                block
-                size="large"
-                icon={<RightOutlined />}
-                style={{ height: 48, borderRadius: 16 }}
-              >
-                Kursga kirish
-              </Button>
-            </Link>
+            <Button
+              type={hasAccess || isGuest ? 'primary' : 'default'}
+              block
+              size="large"
+              icon={ctaIcon}
+              style={{ height: 46, borderRadius: 14 }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenCourse(course.id);
+              }}
+              loading={accessLoading && !isGuest}
+            >
+              {ctaLabel}
+            </Button>
           </div>
         </div>
       </div>
     </Card>
   );
 };
-
-const MetricChip = ({
-  icon,
-  label,
-}: {
-  icon: ReactNode;
-  label: string;
-}) => (
-  <div className="course-metric-chip">
-    <span className="course-metric-chip-icon">{icon}</span>
-    <Text style={{ color: '#102a43' }}>{label}</Text>
-  </div>
-);

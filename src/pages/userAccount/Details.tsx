@@ -10,9 +10,9 @@ import {
   Space,
   Spin,
   Tag,
+  theme,
   Typography,
 } from 'antd';
-import { Card } from '../../components';
 import {
   CalendarOutlined,
   MailOutlined,
@@ -20,6 +20,7 @@ import {
   SaveOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { Card } from '../../components';
 import { useEffect, useState } from 'react';
 import {
   type CurrentUser,
@@ -29,6 +30,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../../redux/store.ts';
 import { setCurrentUser } from '../../redux/auth/authSlice.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 type ProfileFormValues = {
   firstname: string;
@@ -43,12 +45,23 @@ type ProfileFormValues = {
 const DATE_FORMAT = 'YYYY-MM-DD';
 
 export const UserProfileDetailsPage = () => {
+  const {
+    token: { colorText, colorTextSecondary, colorTextTertiary },
+  } = theme.useToken();
   const dispatch = useDispatch();
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const { t } = useAppTranslation();
   const [form] = Form.useForm<ProfileFormValues>();
   const [user, setUser] = useState<CurrentUser | null>(currentUser);
   const [profileLoading, setProfileLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Only administrators may edit profile data; regular users see it read-only.
+  const canEdit = Boolean(
+    currentUser?.roles?.some(
+      (role) => role === 'ROLE_ADMIN' || role === 'ROLE_SUPER_ADMIN'
+    )
+  );
 
   useEffect(() => {
     if (currentUser) {
@@ -70,7 +83,7 @@ export const UserProfileDetailsPage = () => {
       setUser(userData);
       form.setFieldsValue(toFormValues(userData));
     } catch {
-      message.error("Profil ma’lumotlarini yuklashda xatolik yuz berdi.");
+      message.error(t('profile.msg.loadError'));
     } finally {
       setProfileLoading(false);
     }
@@ -78,7 +91,7 @@ export const UserProfileDetailsPage = () => {
 
   const handleSave = async (values: ProfileFormValues) => {
     if (!user?.id) {
-      message.error("Foydalanuvchi ma’lumoti topilmadi.");
+      message.error(t('profile.msg.notFound'));
       return;
     }
 
@@ -99,9 +112,9 @@ export const UserProfileDetailsPage = () => {
       dispatch(setCurrentUser(refreshedUser));
       setUser(refreshedUser);
       form.setFieldsValue(toFormValues(refreshedUser));
-      message.success("Profil ma’lumotlari saqlandi.");
+      message.success(t('profile.msg.saveSuccess'));
     } catch {
-      message.error("Profilni saqlashda xatolik yuz berdi.");
+      message.error(t('profile.msg.saveError'));
     } finally {
       setSaving(false);
     }
@@ -117,7 +130,7 @@ export const UserProfileDetailsPage = () => {
       <Card
         style={{
           borderRadius: 24,
-          boxShadow: '0 18px 42px rgba(15,23,42,0.05)',
+          boxShadow: 'var(--color-shadow-soft)',
         }}
         bodyStyle={{ padding: 24 }}
       >
@@ -137,21 +150,21 @@ export const UserProfileDetailsPage = () => {
               }}
             >
               <div>
-                <Typography.Text style={{ color: '#64748b' }}>
-                  Profil ma’lumotlari
+                <Typography.Text style={{ color: colorTextSecondary }}>
+                  {t('profile.details.subtitle')}
                 </Typography.Text>
-                <Typography.Title level={3} style={{ margin: '6px 0 8px', color: '#102a43' }}>
-                  Ma’lumotlarni o‘zgartirish
+                <Typography.Title level={3} style={{ margin: '6px 0 8px', color: colorText }}>
+                  {t('profile.details.title')}
                 </Typography.Title>
-                <Typography.Text style={{ color: '#52606d' }}>
-                  Ism, aloqa va shaxsiy ma’lumotlarni shu yerning o‘zida yangilang.
+                <Typography.Text style={{ color: colorTextSecondary }}>
+                  {t('profile.details.description')}
                 </Typography.Text>
               </div>
 
               <Space wrap size={8}>
                 {user?.status ? (
                   <Tag color={user.status === 'Active' ? 'success' : 'default'} style={{ borderRadius: 999 }}>
-                    {user.status === 'Active' ? 'Faol' : user.status}
+                    {user.status === 'Active' ? t('profile.details.statusActive') : user.status}
                   </Tag>
                 ) : null}
                 {user?.authProvider ? (
@@ -159,51 +172,52 @@ export const UserProfileDetailsPage = () => {
                 ) : null}
               </Space>
             </div>
-
+            
             <Form<ProfileFormValues>
               form={form}
               layout="vertical"
               onFinish={handleSave}
               autoComplete="off"
+              disabled={!canEdit}
             >
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="Ism"
+                    label={t('profile.form.firstname.label')}
                     name="firstname"
-                    rules={[{ required: true, message: 'Ismni kiriting' }]}
+                    rules={[{ required: true, message: t('profile.form.firstname.required') }]}
                   >
                     <Input
                       size="large"
-                      prefix={<UserOutlined style={{ color: '#94a3b8' }} />}
-                      placeholder="Ismingizni kiriting"
+                      prefix={<UserOutlined style={{ color: colorTextTertiary }} />}
+                      placeholder={t('profile.form.firstname.placeholder')}
                     />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="Familiya"
+                    label={t('profile.form.lastname.label')}
                     name="lastname"
-                    rules={[{ required: true, message: 'Familiyani kiriting' }]}
+                    rules={[{ required: true, message: t('profile.form.lastname.required') }]}
                   >
                     <Input
                       size="large"
-                      prefix={<UserOutlined style={{ color: '#94a3b8' }} />}
-                      placeholder="Familiyangizni kiriting"
+                      prefix={<UserOutlined style={{ color: colorTextTertiary }} />}
+                      placeholder={t('profile.form.lastname.placeholder')}
                     />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="Sharif" name="middlename">
+                  <Form.Item label={t('profile.form.middlename.label')} name="middlename">
                     <Input
                       size="large"
-                      prefix={<UserOutlined style={{ color: '#94a3b8' }} />}
-                      placeholder="Sharifingizni kiriting"
+                      prefix={<UserOutlined style={{ color: colorTextTertiary }} />}
+                      placeholder={t('profile.form.middlename.placeholder')}
                     />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="Passport seriya va raqami" name="passportId">
+                  <Form.Item label={t('profile.form.passportId.label')} name="passportId">
                     <Input
                       size="large"
                       placeholder="AA1234567"
@@ -212,65 +226,67 @@ export const UserProfileDetailsPage = () => {
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item
-                    label="Elektron pochta"
+                    label={t('profile.form.email.label')}
                     name="email"
                     rules={[
-                      { required: true, message: 'Emailni kiriting' },
-                      { type: 'email', message: 'Email formatini tekshiring' },
+                      { required: true, message: t('profile.form.email.required') },
+                      { type: 'email', message: t('profile.form.email.invalid') },
                     ]}
                   >
                     <Input
                       size="large"
-                      prefix={<MailOutlined style={{ color: '#94a3b8' }} />}
+                      prefix={<MailOutlined style={{ color: colorTextTertiary }} />}
                       placeholder="example@mail.com"
                     />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="Telefon raqam" name="phoneNumber">
+                  <Form.Item label={t('profile.form.phone.label')} name="phoneNumber">
                     <Input
                       size="large"
-                      prefix={<PhoneOutlined style={{ color: '#94a3b8' }} />}
+                      prefix={<PhoneOutlined style={{ color: colorTextTertiary }} />}
                       placeholder="+998901234567"
                     />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="Tug‘ilgan sana" name="birthDate">
+                  <Form.Item label={t('profile.form.birthDate.label')} name="birthDate">
                     <DatePicker
                       size="large"
                       style={{ width: '100%' }}
                       format={DATE_FORMAT}
                       placeholder="YYYY-MM-DD"
-                      suffixIcon={<CalendarOutlined style={{ color: '#94a3b8' }} />}
+                      suffixIcon={<CalendarOutlined style={{ color: colorTextTertiary }} />}
                     />
                   </Form.Item>
                 </Col>
               </Row>
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: 10,
-                  flexWrap: 'wrap',
-                  marginTop: 8,
-                }}
-              >
-                <Button size="large" onClick={handleReset} style={{ borderRadius: 14 }}>
-                  Bekor qilish
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  size="large"
-                  loading={saving}
-                  icon={<SaveOutlined />}
-                  style={{ borderRadius: 14 }}
+              {canEdit ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                    marginTop: 8,
+                  }}
                 >
-                  Saqlash
-                </Button>
-              </div>
+                  <Button size="large" onClick={handleReset} style={{ borderRadius: 14 }}>
+                    {t('profile.form.cancel')}
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    size="large"
+                    loading={saving}
+                    icon={<SaveOutlined />}
+                    style={{ borderRadius: 14 }}
+                  >
+                    {t('profile.form.save')}
+                  </Button>
+                </div>
+              ) : null}
             </Form>
           </Space>
         )}

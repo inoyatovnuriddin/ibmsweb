@@ -1,261 +1,177 @@
+import { type ReactNode, useEffect, useState } from 'react';
+import { Empty, Space, Spin, Tag, theme, Typography } from 'antd';
 import {
-  Button,
-  Checkbox,
-  Col,
-  DatePicker,
-  Flex,
-  Form,
-  Input,
-  Row,
-  Select,
-} from 'antd';
-import { Card } from '../../components';
-import {
-  MinusCircleOutlined,
-  PlusOutlined,
-  SaveOutlined,
+  CalendarOutlined,
+  IdcardOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  SafetyCertificateOutlined,
+  SendOutlined,
+  SolutionOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
-import { useStylesContext } from '../../context';
-import dayjs from 'dayjs';
+import { useDispatch, useSelector } from 'react-redux';
+import { Card } from '../../components';
+import type { RootState } from '../../redux/store.ts';
+import { fetchCurrentUser } from '../../redux/auth/authApi.ts';
+import { setCurrentUser } from '../../redux/auth/authSlice.ts';
 
-const SOCIALS = [
-  'Facebook',
-  'Instagram',
-  'Twitter',
-  'LinkedIn',
-  'Mastodon',
-  'Threads',
-  'YouTube',
-  'WhatsApp',
-  'Tiktok',
-  'Telegram',
-  'QQ',
-  'WeChat',
-];
+const { Text, Title } = Typography;
 
-type FieldType = {
-  country?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  postalCode?: string;
-  preferred?: boolean;
-};
-
-type BirthdayFieldType = {
-  dob?: string;
+const ROLE_LABELS: Record<string, string> = {
+  ROLE_SUPER_ADMIN: 'Super admin',
+  ROLE_ADMIN: 'Administrator',
+  ROLE_INSTRUCTOR: 'Oʻqituvchi',
+  ROLE_USER: 'Foydalanuvchi',
 };
 
 export const UserProfileInformationPage = () => {
-  const context = useStylesContext();
-  const onFinish = (values: any) => {
-    console.log('Success:', values);
-  };
+  const {
+    token: { colorText, colorTextSecondary, colorBorderSecondary, colorFillTertiary },
+  } = theme.useToken();
+  const dispatch = useDispatch();
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const [loading, setLoading] = useState(!currentUser);
 
-  const onFinishFailed = (errorInfo: any) => {
-    console.log('Failed:', errorInfo);
-  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const fresh = await fetchCurrentUser();
+        dispatch(setCurrentUser(fresh));
+      } catch {
+        /* keep whatever is in the store */
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [dispatch]);
+
+  if (loading && !currentUser) {
+    return (
+      <Card style={{ borderRadius: 24 }} bodyStyle={{ minHeight: 240, display: 'grid', placeItems: 'center' }}>
+        <Spin />
+      </Card>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <Card style={{ borderRadius: 24 }}>
+        <Empty description="Maʼlumot topilmadi" />
+      </Card>
+    );
+  }
+
+  const fullName =
+    [currentUser.lastName, currentUser.firstName, currentUser.middleName]
+      .filter(Boolean)
+      .join(' ') || '—';
+
+  const rows: Array<{ icon: ReactNode; label: string; value: ReactNode }> = [
+    { icon: <UserOutlined />, label: 'F.I.Sh.', value: fullName },
+    { icon: <MailOutlined />, label: 'Elektron pochta', value: currentUser.email || '—' },
+    { icon: <PhoneOutlined />, label: 'Telefon', value: currentUser.phoneNumber || '—' },
+    { icon: <IdcardOutlined />, label: 'Passport', value: currentUser.passportId || '—' },
+    { icon: <CalendarOutlined />, label: 'Tugʻilgan sana', value: currentUser.birthDate || '—' },
+    {
+      icon: <SolutionOutlined />,
+      label: 'Kirish usuli',
+      value: currentUser.authProvider || 'LOCAL',
+    },
+    {
+      icon: <SendOutlined />,
+      label: 'Telegram',
+      value: currentUser.telegramLinked ? (
+        <Tag color="processing">
+          Ulangan{currentUser.telegramUsername ? ` · @${currentUser.telegramUsername}` : ''}
+        </Tag>
+      ) : (
+        <Tag>Ulanmagan</Tag>
+      ),
+    },
+  ];
 
   return (
-    <Row {...context?.rowProps}>
-      <Col span={24}>
-        <Card title="Address book">
-          <Form
-            name="user-profile-address-form"
-            layout="vertical"
-            initialValues={{
-              country: 'Kenya',
-              addressLine1: '828, 18282 ABC Drive, XYZ Rd',
-              city: 'Nairobi',
-              postalCode: '00100',
-              preferred: true,
-            }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="on"
-            requiredMark={false}
-          >
-            <Row gutter={[16, 0]}>
-              <Col sm={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Country"
-                  name="country"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please select your country or region!',
-                    },
-                  ]}
-                >
-                  <Select options={[]} />
-                </Form.Item>
-              </Col>
-              <Col sm={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="City"
-                  name="city"
-                  rules={[
-                    { required: true, message: 'Please enter your city!' },
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col sm={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Address line 1"
-                  name="addressLine1"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please enter your address line!',
-                    },
-                  ]}
-                >
-                  <Input.TextArea />
-                </Form.Item>
-              </Col>
-              <Col sm={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Address line 2"
-                  name="addressLine2"
-                  rules={[
-                    {
-                      required: false,
-                      message: 'Please enter your address line!',
-                    },
-                  ]}
-                >
-                  <Input.TextArea />
-                </Form.Item>
-              </Col>
-              <Col sm={24} lg={12}>
-                <Form.Item<FieldType>
-                  label="Postal code"
-                  name="postalCode"
-                  rules={[
-                    {
-                      required: true,
-                      message: 'Please enter your postal code!',
-                    },
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col sm={24} lg={24}>
-                <Form.Item<FieldType> name="preferred">
-                  <Checkbox>
-                    Set as a preferred billing and shipping address
-                  </Checkbox>
-                </Form.Item>
-              </Col>
-            </Row>
+    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Space align="center" size={12} style={{ marginBottom: 4 }}>
+          <SafetyCertificateOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+          <Title level={4} style={{ margin: 0, color: colorText }}>
+            Shaxsiy maʼlumot
+          </Title>
+        </Space>
+        <Text style={{ color: colorTextSecondary }}>
+          Hisobingizga tegishli asosiy maʼlumotlar. Oʻzgartirish uchun administratorga murojaat qiling.
+        </Text>
 
-            <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                Save changes
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
-      </Col>
-      <Col sm={24} lg={16}>
-        <Card title="Social links">
-          <Form
-            name="user-profile-social-form"
-            onFinish={onFinish}
-            autoComplete="off"
-          >
-            <Form.List name="social-links">
-              {(fields, { add, remove }) => (
-                <>
-                  {fields.map(({ key, name, ...restField }) => (
-                    <Flex
-                      key={key}
-                      align="baseline"
-                      gap="small"
-                      style={{ marginBottom: 8 }}
-                    >
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'social']}
-                        rules={[{ required: true, message: 'Missing social' }]}
-                        style={{ width: 200 }}
-                      >
-                        <Select
-                          placeholder="social"
-                          options={SOCIALS.map((s) => ({ value: s, label: s }))}
-                        />
-                      </Form.Item>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'username']}
-                        rules={[
-                          { required: true, message: 'Missing username' },
-                        ]}
-                      >
-                        <Input placeholder="username" />
-                      </Form.Item>
-                      <Button
-                        type="text"
-                        icon={<MinusCircleOutlined />}
-                        onClick={() => remove(name)}
-                      ></Button>
-                    </Flex>
-                  ))}
-                  <Form.Item>
-                    <Button
-                      type="default"
-                      onClick={() => add()}
-                      block
-                      icon={<PlusOutlined />}
-                    >
-                      Add link
-                    </Button>
-                  </Form.Item>
-                </>
-              )}
-            </Form.List>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                Save changes
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
-      </Col>
-      <Col sm={24} lg={8}>
-        <Card title="Birthday">
-          <Form
-            name="user-profile-birhday-form"
-            layout="vertical"
-            initialValues={{
-              dob: dayjs('1996/04/27'),
-            }}
-            onFinish={onFinish}
-            onFinishFailed={onFinishFailed}
-            autoComplete="on"
-            requiredMark={false}
-          >
-            <Form.Item<BirthdayFieldType>
-              label="Birth date"
-              name="dob"
-              rules={[
-                { required: true, message: 'Please select your birthday!' },
-              ]}
+        <div
+          style={{
+            marginTop: 20,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 12,
+          }}
+        >
+          {rows.map((row) => (
+            <div
+              key={row.label}
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: '14px 16px',
+                borderRadius: 16,
+                background: colorFillTertiary,
+                border: `1px solid ${colorBorderSecondary}`,
+              }}
             >
-              <DatePicker />
-            </Form.Item>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'rgba(37,99,235,0.1)',
+                  color: '#2563eb',
+                  fontSize: 18,
+                  flexShrink: 0,
+                }}
+              >
+                {row.icon}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <Text style={{ color: colorTextSecondary, fontSize: 12, display: 'block' }}>
+                  {row.label}
+                </Text>
+                <Text strong style={{ color: colorText, wordBreak: 'break-word' }}>
+                  {row.value}
+                </Text>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
-            <Form.Item>
-              <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                Save changes
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
-      </Col>
-    </Row>
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Title level={5} style={{ margin: '0 0 4px', color: colorText }}>
+          Rollar va ruxsatlar
+        </Title>
+        <Text style={{ color: colorTextSecondary }}>Sizga tizimda berilgan rollar.</Text>
+        <div style={{ marginTop: 14 }}>
+          <Space wrap size={8}>
+            {(currentUser.roles || []).map((role) => (
+              <Tag
+                key={role}
+                color={role === 'ROLE_SUPER_ADMIN' ? 'gold' : 'blue'}
+                style={{ borderRadius: 999, padding: '4px 12px' }}
+              >
+                {ROLE_LABELS[role] || role.replace(/^ROLE_/, '')}
+              </Tag>
+            ))}
+          </Space>
+        </div>
+      </Card>
+    </Space>
   );
 };

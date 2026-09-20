@@ -7,3 +7,6 @@ export {DashboardQrCodePage} from './QrCode.tsx';
 export { DashboardCourseMonitoringPage } from './CourseMonitoring.tsx';
 export { DashboardGroupsPage } from './Groups.tsx';
 export { DashboardGroupDetailsPage } from './GroupDetails.tsx';
+export { DashboardPublicContactRequestsPage } from './PublicContactRequests.tsx';
+export { DashboardCertificatesPage } from './Certificates.tsx';
+export { DashboardRolesPage } from './Roles.tsx';

@@ -2,10 +2,12 @@ import { Button, Flex, Typography } from 'antd';
 import { Logo } from '../../components';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PATH_LANDING } from '../../constants';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 export const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
-  const email = searchParams.get('email') || 'sizning email manzilingiz';
+  const { t } = useAppTranslation();
+  const email = searchParams.get('email') || t('auth.form.email');
 
   return (
     <Flex
@@ -31,23 +33,21 @@ export const VerifyEmailPage = () => {
         <Logo color="blue" />
 
         <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          Электрон почтани тасдиқланг
+          {t('auth.verifyEmail.title')}
         </Typography.Title>
 
         <Typography.Text style={{ fontSize: 16 }}>
-          Биз <Typography.Text strong>{email}</Typography.Text> манзилига
-          тасдиқлаш хати юбордик. Илтимос, хатдаги ҳаволани босиб электрон
-          почтангизни тасдиқланг.
+          {t('auth.verifyEmail.description').replace('{email}', email)}
         </Typography.Text>
 
         <Button type="primary" size="large" block>
-          <Link to={PATH_LANDING.root}>Тасдиқлашни кейинроқ қилиш</Link>
+          <Link to={PATH_LANDING.root}>{t('auth.verifyEmail.later')}</Link>
         </Button>
 
         <Flex justify="center" align="center" gap={4}>
-          <Typography.Text>Хат келмадими?</Typography.Text>
+          <Typography.Text>{t('auth.verifyEmail.notReceived')}</Typography.Text>
           <Typography.Link onClick={() => alert('Resend link!')}>
-            Қайта юбориш
+            {t('auth.verifyEmail.resend')}
           </Typography.Link>
         </Flex>
       </Flex>

@@ -14,7 +14,7 @@ export const BackBtn = ({ wIcon, iconOnly, ...others }: Props) => {
     <Tooltip title="Navigate to previous page">
       <Button
         icon={wIcon || iconOnly ? <LeftOutlined /> : null}
-        onClick={() => navigate(-1)}
+        onClick={() => navigate('/')}
         {...others}
       >
         {!iconOnly && 'Бош саҳифага'}

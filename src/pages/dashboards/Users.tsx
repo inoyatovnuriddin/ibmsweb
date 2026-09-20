@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Alert,
+  Avatar,
   Badge,
   Button,
   DatePicker,
@@ -9,24 +10,42 @@ import {
   Input,
   message,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
   Table,
   Tag,
+  theme,
   Tooltip,
   Typography,
+  Upload,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  UploadOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import ImgCrop from 'antd-img-crop';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
+import { useSelector } from 'react-redux';
 import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../services/api.ts';
+import type { RootState } from '../../redux/store.ts';
 import {
   ADMIN_MODAL_STYLES,
   AdminPageFrame,
   AdminSectionCard,
 } from './adminUi.tsx';
-import { updateUser } from './usersApi.ts';
+import {
+  deleteUser,
+  listRoles,
+  RoleInfo,
+  updateUser,
+  uploadUserImage,
+} from './usersApi.ts';
 
 const { Text } = Typography;
 const DATE_FORMAT = 'YYYY-MM-DD';
@@ -43,6 +62,7 @@ interface UserResponse {
   lastname: string;
   middlename: string;
   status: UserStatus;
+  userImage?: string | null;
   roles: string[];
 }
 
@@ -74,8 +94,8 @@ interface ApiWrapper<T> {
   message?: string;
 }
 
-const roleOptions = [
-  { value: 'ROLE_ADMIN', label: 'Admin' },
+const FALLBACK_ROLE_OPTIONS = [
+  { value: 'ROLE_ADMIN', label: 'Administrator' },
   { value: 'ROLE_INSTRUCTOR', label: 'O‘qituvchi' },
   { value: 'ROLE_USER', label: 'Foydalanuvchi' },
 ];
@@ -93,21 +113,38 @@ const toDayjs = (value?: string | null): Dayjs | null => {
 };
 
 export const DashboardUsersPage = () => {
+  const {
+    token: { colorText, colorTextSecondary },
+  } = theme.useToken();
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const isSuperAdmin = Boolean(currentUser?.roles?.includes('ROLE_SUPER_ADMIN'));
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [form] = Form.useForm<UserFormValues>();
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserResponse | null>(null);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [pagination, setPagination] = useState<TablePaginationConfig>({
     current: 1,
     pageSize: 10,
   });
 
+  // Profile photo state inside the modal: a freshly cropped file, or a removal request.
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+
   useEffect(() => {
     fetchUsers(1, pagination.pageSize || 10, '');
+    listRoles()
+      .then(setRoles)
+      .catch(() => setRoles([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const extractErrorMessage = (error: unknown): string => {
@@ -148,16 +185,39 @@ export const DashboardUsersPage = () => {
     }
   };
 
+  const roleOptions = useMemo(() => {
+    const source = roles.length
+      ? roles.map((r) => ({ value: r.code, label: r.name || r.code }))
+      : FALLBACK_ROLE_OPTIONS;
+    // Only a super admin may grant the super admin role.
+    return isSuperAdmin
+      ? source
+      : source.filter((o) => o.value !== 'ROLE_SUPER_ADMIN');
+  }, [roles, isSuperAdmin]);
+
+  const roleText = (role: string) => {
+    const found = roleOptions.find((item) => item.value === role);
+    return found?.label || role.replace(/^ROLE_/, '');
+  };
+
+  const resetImageState = () => {
+    if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    setRemoveImage(false);
+  };
+
   const showCreateModal = () => {
     setIsEditing(false);
-    setEditingUserId(null);
+    setEditingUser(null);
     form.resetFields();
+    resetImageState();
     setIsModalOpen(true);
   };
 
   const showEditModal = (record: UserResponse) => {
     setIsEditing(true);
-    setEditingUserId(record.id);
+    setEditingUser(record);
     form.setFieldsValue({
       firstname: record.firstname,
       lastname: record.lastname,
@@ -172,12 +232,15 @@ export const DashboardUsersPage = () => {
       password: undefined,
       confirmPassword: undefined,
     });
+    resetImageState();
+    setImagePreview(record.userImage || null);
     setIsModalOpen(true);
   };
 
   const handleCancel = () => {
     setIsModalOpen(false);
     form.resetFields();
+    resetImageState();
   };
 
   const handleTableChange = (newPagination: TablePaginationConfig) => {
@@ -195,11 +258,6 @@ export const DashboardUsersPage = () => {
     fetchUsers(1, pagination.pageSize || 10, nextSearch);
   };
 
-  const roleText = (role: string) => {
-    const found = roleOptions.find((item) => item.value === role);
-    return found?.label || role;
-  };
-
   const statusBadge = (status: UserStatus) => {
     if (status === 'Active') return <Badge status="success" text="Faol" />;
     if (status === 'Block') return <Badge status="error" text="Bloklangan" />;
@@ -209,10 +267,32 @@ export const DashboardUsersPage = () => {
     return status;
   };
 
-  const submitForm = async (values: UserFormValues) => {
+  const handleDelete = async (record: UserResponse) => {
     try {
+      await deleteUser(record.id);
+      message.success('Foydalanuvchi o‘chirildi');
+      const isLastRowOnPage = users.length === 1 && (pagination.current || 1) > 1;
+      const nextPage = isLastRowOnPage
+        ? (pagination.current || 2) - 1
+        : pagination.current || 1;
+      setPagination((prev) => ({ ...prev, current: nextPage }));
+      fetchUsers(nextPage, pagination.pageSize || 10, search);
+    } catch (error) {
+      message.error(extractErrorMessage(error));
+    }
+  };
+
+  const submitForm = async (values: UserFormValues) => {
+    setSaving(true);
+    try {
+      // Upload the cropped photo first (if a new one was picked) to get its attachment id.
+      let userImageId: string | undefined;
+      if (pendingImage) {
+        userImageId = await uploadUserImage(pendingImage, pendingImage.name || 'avatar.png');
+      }
+
       if (isEditing) {
-        if (!editingUserId) return;
+        if (!editingUser) return;
 
         const updatePayload = {
           firstname: values.firstname?.trim(),
@@ -226,9 +306,11 @@ export const DashboardUsersPage = () => {
           status: values.status,
           changePassword: Boolean(values.changePassword),
           password: values.changePassword ? values.password : undefined,
+          userImageId,
+          removeUserImage: removeImage && !pendingImage,
         };
 
-        await updateUser(editingUserId, updatePayload);
+        await updateUser(editingUser.id, updatePayload);
         message.success('Foydalanuvchi yangilandi');
       } else {
         const createPayload = {
@@ -239,6 +321,7 @@ export const DashboardUsersPage = () => {
           passportId: values.passportId?.trim() || null,
           birthDate: values.birthDate ? values.birthDate.format(DATE_FORMAT) : null,
           roles: values.roles,
+          userImageId,
         };
 
         await apiClient.post('/v1/users/create', createPayload);
@@ -247,9 +330,12 @@ export const DashboardUsersPage = () => {
 
       setIsModalOpen(false);
       form.resetFields();
+      resetImageState();
       fetchUsers(pagination.current || 1, pagination.pageSize || 10, search);
     } catch (error) {
       message.error(extractErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -267,14 +353,22 @@ export const DashboardUsersPage = () => {
       title: 'F.I.Sh.',
       key: 'fullname',
       render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Text strong style={{ color: '#102a43' }}>
-            {record.firstname} {record.lastname}
-          </Text>
-          <Text style={{ color: '#64748b' }}>{record.middlename}</Text>
+        <Space>
+          <Avatar
+            size={44}
+            src={record.userImage || undefined}
+            icon={<UserOutlined />}
+            style={{ flex: '0 0 auto' }}
+          />
+          <Space direction="vertical" size={2}>
+            <Text strong style={{ color: colorText }}>
+              {record.firstname} {record.lastname}
+            </Text>
+            <Text style={{ color: colorTextSecondary }}>{record.middlename}</Text>
+          </Space>
         </Space>
       ),
-      width: 240,
+      width: 260,
     },
     {
       title: 'Aloqa',
@@ -282,7 +376,7 @@ export const DashboardUsersPage = () => {
       render: (_, record) => (
         <Space direction="vertical" size={2}>
           <Text>{record.phoneNumber || '-'}</Text>
-          <Text style={{ color: '#64748b' }}>{record.email || '-'}</Text>
+          <Text style={{ color: colorTextSecondary }}>{record.email || '-'}</Text>
         </Space>
       ),
       width: 250,
@@ -291,28 +385,32 @@ export const DashboardUsersPage = () => {
       title: 'Passport',
       dataIndex: 'passportId',
       render: (value?: string | null) => value || '-',
-      width: 150,
+      width: 130,
     },
     {
       title: 'Tug‘ilgan sana',
       dataIndex: 'birthDate',
       render: (value?: string | null) => value || '-',
-      width: 150,
+      width: 140,
     },
     {
       title: 'Holat',
       dataIndex: 'status',
       render: (status: UserStatus) => statusBadge(status),
-      width: 150,
+      width: 140,
     },
     {
       title: 'Rollar',
       dataIndex: 'roles',
-      render: (roles: string[]) => (
+      render: (userRoles: string[]) => (
         <Space wrap>
-          {roles.map((role, index) => (
+          {userRoles.map((role, index) => (
             <Tag
-              color={['blue', 'green', 'orange', 'purple'][index % 4]}
+              color={
+                role === 'ROLE_SUPER_ADMIN'
+                  ? 'gold'
+                  : ['blue', 'green', 'orange', 'purple'][index % 4]
+              }
               key={`${role}-${index}`}
               style={{ borderRadius: 999, paddingInline: 10 }}
             >
@@ -326,16 +424,39 @@ export const DashboardUsersPage = () => {
       title: 'Amallar',
       key: 'actions',
       width: 140,
-      render: (_value, record) => (
-        <Space>
-          <Tooltip title="Tahrirlash">
-            <Button icon={<EditOutlined />} onClick={() => showEditModal(record)} />
-          </Tooltip>
-          <Tooltip title="O‘chirish keyin qo‘shiladi">
-            <Button danger icon={<DeleteOutlined />} disabled />
-          </Tooltip>
-        </Space>
-      ),
+      render: (_value, record) => {
+        const isSelf = record.id === currentUser?.id;
+        const targetIsSuperAdmin = record.roles.includes('ROLE_SUPER_ADMIN');
+        const deletable = !isSelf && (isSuperAdmin || !targetIsSuperAdmin);
+        return (
+          <Space>
+            <Tooltip title="Tahrirlash">
+              <Button icon={<EditOutlined />} onClick={() => showEditModal(record)} />
+            </Tooltip>
+            <Popconfirm
+              title="Foydalanuvchini o‘chirish"
+              description={`${record.firstname} ${record.lastname} o‘chirilsinmi?`}
+              okText="Ha, o‘chirish"
+              cancelText="Bekor qilish"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => handleDelete(record)}
+              disabled={!deletable}
+            >
+              <Tooltip
+                title={
+                  isSelf
+                    ? 'O‘zingizni o‘chira olmaysiz'
+                    : !deletable
+                      ? 'Super adminni faqat super admin o‘chira oladi'
+                      : 'O‘chirish'
+                }
+              >
+                <Button danger icon={<DeleteOutlined />} disabled={!deletable} />
+              </Tooltip>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -382,6 +503,7 @@ export const DashboardUsersPage = () => {
               current: pagination.current,
               pageSize: pagination.pageSize,
               total: count,
+              showTotal: (total) => `Jami: ${total}`,
             }}
             onChange={handleTableChange}
             scroll={{ x: 1180 }}
@@ -395,12 +517,93 @@ export const DashboardUsersPage = () => {
           onOk={() => form.submit()}
           okText="Saqlash"
           cancelText="Bekor qilish"
+          okButtonProps={{ loading: saving }}
           destroyOnClose
           centered
           width="min(760px, calc(100vw - 24px))"
           styles={ADMIN_MODAL_STYLES}
         >
           <Form<UserFormValues> form={form} layout="vertical" onFinish={submitForm}>
+            {/* Profile photo (optional) with interactive crop */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                padding: 14,
+                marginBottom: 18,
+                borderRadius: 14,
+                border: '1px dashed rgba(148,163,184,0.5)',
+              }}
+            >
+              <Avatar
+                size={72}
+                src={!removeImage ? imagePreview || undefined : undefined}
+                icon={<UserOutlined />}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>Profil rasmi</div>
+                <div style={{ fontSize: 12, color: 'rgba(100,116,139,0.95)' }}>
+                  Ixtiyoriy. Rasm tanlangach kerakli qismini kesib olishingiz mumkin
+                  (JPG/PNG, ≤ 5MB).
+                </div>
+              </div>
+              <Space>
+                <ImgCrop
+                  rotationSlider
+                  showGrid
+                  aspect={1}
+                  modalTitle="Rasmni kesish"
+                  modalOk="Kesish"
+                  modalCancel="Bekor qilish"
+                >
+                  <Upload
+                    accept="image/*"
+                    maxCount={1}
+                    showUploadList={false}
+                    beforeUpload={(file) => {
+                      const isImage = file.type.startsWith('image/');
+                      const isSmall = file.size / 1024 / 1024 < 5;
+                      if (!isImage) {
+                        message.error('Faqat rasm yuklash mumkin');
+                        return Upload.LIST_IGNORE;
+                      }
+                      if (!isSmall) {
+                        message.error('Rasm hajmi 5MB dan kichik bo‘lishi kerak');
+                        return Upload.LIST_IGNORE;
+                      }
+                      if (imagePreview?.startsWith('blob:')) {
+                        URL.revokeObjectURL(imagePreview);
+                      }
+                      setPendingImage(file);
+                      setImagePreview(URL.createObjectURL(file));
+                      setRemoveImage(false);
+                      return false;
+                    }}
+                  >
+                    <Button icon={<UploadOutlined />}>
+                      {imagePreview && !removeImage ? 'Almashtirish' : 'Rasm tanlash'}
+                    </Button>
+                  </Upload>
+                </ImgCrop>
+                {imagePreview && !removeImage && (
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    aria-label="Rasmni olib tashlash"
+                    onClick={() => {
+                      if (imagePreview?.startsWith('blob:')) {
+                        URL.revokeObjectURL(imagePreview);
+                      }
+                      setPendingImage(null);
+                      setImagePreview(null);
+                      setRemoveImage(true);
+                    }}
+                  />
+                )}
+              </Space>
+            </div>
+
             <Form.Item
               label="Ism"
               name="firstname"
@@ -458,7 +661,7 @@ export const DashboardUsersPage = () => {
                   label="Parolni yangilash"
                   name="changePassword"
                   valuePropName="checked"
-                  extra="Faqat yoqilganda yangi parol backendga yuboriladi."
+                  extra="Foydalanuvchi parolini yangilashni xohlaysizmi?"
                 >
                   <Switch checkedChildren="Ha" unCheckedChildren="Yo‘q" />
                 </Form.Item>
@@ -519,6 +722,8 @@ export const DashboardUsersPage = () => {
                 mode="multiple"
                 options={roleOptions}
                 placeholder="Rollarni tanlang"
+                optionFilterProp="label"
+                showSearch
               />
             </Form.Item>
           </Form>

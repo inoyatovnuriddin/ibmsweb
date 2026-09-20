@@ -5310,6 +5310,14 @@ ansi-styles@^6.2.1:
   resolved "https://registry.npmjs.org/ansi-styles/-/ansi-styles-6.2.1.tgz"
   integrity sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==
 
+antd-img-crop@^4.30.0:
+  version "4.30.0"
+  resolved "https://registry.npmjs.org/antd-img-crop/-/antd-img-crop-4.30.0.tgz"
+  integrity sha512-fjpwyCNKtKr22AQcENBix5Y+P8ECM80Ivk/Yn7kF9D0XltYBGJHg+3yycxcGq7ATgnl7pgPYDvN2VzKleogCLQ==
+  dependencies:
+    react-easy-crop "^5.5.6"
+    tslib "^2.8.1"
+
 antd@^5.10.1:
   version "5.10.1"
   resolved "https://registry.npmjs.org/antd/-/antd-5.10.1.tgz"
@@ -9500,6 +9508,11 @@ normalize-path@^3.0.0, normalize-path@~3.0.0:
   resolved "https://registry.npmjs.org/normalize-path/-/normalize-path-3.0.0.tgz"
   integrity sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==
 
+normalize-wheel@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.npmjs.org/normalize-wheel/-/normalize-wheel-1.0.1.tgz"
+  integrity sha512-1OnlAPZ3zgrk8B91HyRj+eVv+kS5u+Z0SCsak6Xil/kmgEia50ga7zfkumayonZrImffAxPU/5WcyGhzetHNPA==
+
 npm-run-path@^4.0.1:
   version "4.0.1"
   resolved "https://registry.npmjs.org/npm-run-path/-/npm-run-path-4.0.1.tgz"
@@ -10634,6 +10647,14 @@ react-dom@^18.2.0:
     loose-envify "^1.1.0"
     scheduler "^0.23.0"
 
+react-easy-crop@^5.5.6:
+  version "5.5.7"
+  resolved "https://registry.npmjs.org/react-easy-crop/-/react-easy-crop-5.5.7.tgz"
+  integrity sha512-kYo4NtMeXFQB7h1U+h5yhUkE46WQbQdq7if54uDlbMdZHdRgNehfvaFrXnFw5NR1PNoUOJIfTwLnWmEx/MaZnA==
+  dependencies:
+    normalize-wheel "^1.0.1"
+    tslib "^2.0.1"
+
 react-element-to-jsx-string@^15.0.0:
   version "15.0.0"
   resolved "https://registry.npmjs.org/react-element-to-jsx-string/-/react-element-to-jsx-string-15.0.0.tgz"
@@ -10686,6 +10707,11 @@ react-inspector@^6.0.0, react-inspector@6.0.2:
   version "6.0.2"
   resolved "https://registry.npmjs.org/react-inspector/-/react-inspector-6.0.2.tgz"
   integrity sha512-x+b7LxhmHXjHoU/VrFAzw5iutsILRoYyDq97EDYdFpPLcvqtEzk4ZSZSQjnFPbr5T57tLXnHcqFYoN1pI6u8uQ==
+
+react-international-phone@^4.8.0:
+  version "4.8.0"
+  resolved "https://registry.npmjs.org/react-international-phone/-/react-international-phone-4.8.0.tgz"
+  integrity sha512-PoyXx8t0OZNZXLupZN5UtmLb8nO6PQ6f6jQvYCAtg7VzxonuBcDs/4YA4+flqZZj5QOVqN4DLY1p39mEtJAwzw==
 
 react-is@^16.12.0, react-is@^16.13.1, react-is@^16.7.0:
   version "16.13.1"
@@ -12183,10 +12209,10 @@ tslib@^1.9.0:
   resolved "https://registry.npmjs.org/tslib/-/tslib-1.14.1.tgz"
   integrity sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==
 
-tslib@^2.0.0, tslib@^2.0.1, tslib@^2.0.3, tslib@^2.1.0, tslib@^2.3.1, tslib@^2.4.0:
-  version "2.6.2"
-  resolved "https://registry.npmjs.org/tslib/-/tslib-2.6.2.tgz"
-  integrity sha512-AEYxH93jGFPn/a2iVAwW87VuUIkR1FVUKB77NwMF7nBTDkDrrT/Hpt/IrCJ0QXhW27jTBDcf5ZY7w6RiqTMw2Q==
+tslib@^2.0.0, tslib@^2.0.1, tslib@^2.0.3, tslib@^2.1.0, tslib@^2.3.1, tslib@^2.4.0, tslib@^2.8.1:
+  version "2.8.1"
+  resolved "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz"
+  integrity sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==
 
 tsutils@^3.21.0:
   version "3.21.0"

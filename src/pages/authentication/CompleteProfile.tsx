@@ -9,6 +9,7 @@ import {
   message,
   Row,
   Space,
+  theme,
   Typography,
 } from 'antd';
 import dayjs from 'dayjs';
@@ -19,6 +20,7 @@ import { completeProfile, fetchCurrentUser } from '../../redux/auth/authApi.ts';
 import { setCurrentUser } from '../../redux/auth/authSlice.ts';
 import { PATH_COURSE } from '../../constants';
 import { readAccessToken } from '../../redux/auth/authSession.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -30,7 +32,7 @@ type CompleteProfileValues = {
   confirmPassword?: string;
 };
 
-const getReadableError = (error: unknown) => {
+const getReadableError = (error: unknown, fallback: string) => {
   const err = error as {
     response?: { data?: { message?: string; detail?: string; errors?: { message?: string } } };
     message?: string;
@@ -41,17 +43,28 @@ const getReadableError = (error: unknown) => {
     err?.response?.data?.detail ||
     err?.response?.data?.message ||
     err?.message ||
-    'Profilni saqlashda xatolik yuz berdi'
+    fallback
   );
 };
 
 export const CompleteProfilePage = () => {
+  const {
+    token: {
+      colorBgContainer,
+      colorBorderSecondary,
+      colorPrimary,
+      colorTextSecondary,
+    },
+  } = theme.useToken();
   const [form] = Form.useForm<CompleteProfileValues>();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const { mytheme } = useSelector((state: RootState) => state.theme);
+  const { t } = useAppTranslation();
+  const isDark = mytheme === 'dark';
 
   useEffect(() => {
     if (!readAccessToken()) {
@@ -74,9 +87,9 @@ export const CompleteProfilePage = () => {
   const helperText = useMemo(
     () =>
       currentUser?.passwordLoginEnabled
-        ? 'Parol orqali kirish allaqachon yoqilgan. Quyidagi maydonlar bilan profilingizni yakunlang.'
-        : 'Agar xohlasangiz, shu yerning o‘zida parol o‘rnatib, keyinchalik telefon yoki email orqali ham kirishingiz mumkin.',
-    [currentUser?.passwordLoginEnabled]
+        ? t('auth.completeProfile.helperEnabled')
+        : t('auth.completeProfile.helperSetup'),
+    [currentUser?.passwordLoginEnabled, t]
   );
 
   const handleSubmit = async (values: CompleteProfileValues) => {
@@ -93,10 +106,10 @@ export const CompleteProfilePage = () => {
 
       const syncedUser = await fetchCurrentUser();
       dispatch(setCurrentUser(syncedUser));
-      messageApi.success('Profil muvaffaqiyatli yangilandi');
+      messageApi.success(t('auth.completeProfile.success'));
       navigate(PATH_COURSE.catalog, { replace: true });
     } catch (error) {
-      messageApi.error(getReadableError(error));
+      messageApi.error(getReadableError(error, t('profile.msg.saveError')));
     } finally {
       setLoading(false);
     }
@@ -105,20 +118,29 @@ export const CompleteProfilePage = () => {
   return (
     <>
       {contextHolder}
-      <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '40px 20px' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          background: isDark
+            ? 'radial-gradient(circle at top, rgba(37,99,235,0.18) 0%, transparent 34%), var(--home-bg)'
+            : '#f8fafc',
+          padding: '40px 20px',
+        }}
+      >
         <div style={{ maxWidth: 880, margin: '0 auto' }}>
           <Card
             style={{
               borderRadius: 28,
-              border: '1px solid rgba(148,163,184,0.14)',
-              boxShadow: '0 18px 48px rgba(15,23,42,0.06)',
+              background: colorBgContainer,
+              border: `1px solid ${colorBorderSecondary}`,
+              boxShadow: 'var(--color-shadow-soft)',
             }}
           >
             <Space direction="vertical" size={18} style={{ width: '100%' }}>
               <div>
-                <Text style={{ color: '#2563eb' }}>Profilni yakunlash</Text>
-                <Title style={{ margin: '8px 0 10px' }}>Profilingizni to‘ldiring</Title>
-                <Paragraph style={{ marginBottom: 0, color: '#64748b' }}>
+                <Text style={{ color: colorPrimary }}>{t('auth.completeProfile.eyebrow')}</Text>
+                <Title style={{ margin: '8px 0 10px' }}>{t('auth.completeProfile.title')}</Title>
+                <Paragraph style={{ marginBottom: 0, color: colorTextSecondary }}>
                   {helperText}
                 </Paragraph>
               </div>
@@ -132,39 +154,39 @@ export const CompleteProfilePage = () => {
                 <Row gutter={[16, 0]}>
                   <Col xs={24} md={12}>
                     <Form.Item
-                      label="Telefon raqam"
+                      label={t('auth.form.phone')}
                       name="phoneNumber"
-                      rules={[{ required: true, message: 'Telefon raqam kiriting' }]}
+                      rules={[{ required: true, message: t('auth.completeProfile.phoneRequired') }]}
                     >
                       <Input size="large" placeholder="+998901234567" />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
                     <Form.Item
-                      label="Tug'ilgan sana"
+                      label={t('auth.form.birthDate')}
                       name="birthday"
-                      rules={[{ required: true, message: "Tug'ilgan sanani tanlang" }]}
+                      rules={[{ required: true, message: t('auth.completeProfile.birthDateRequired') }]}
                     >
-                      <DatePicker size="large" style={{ width: '100%' }} placeholder="Tug'ilgan sana" format="YYYY-MM-DD" />
+                      <DatePicker size="large" style={{ width: '100%' }} placeholder={t('auth.completeProfile.birthDatePlaceholder')} format="YYYY-MM-DD" />
                     </Form.Item>
                   </Col>
                   <Col xs={24}>
                     <Form.Item
-                      label="Passport seriya va raqami"
+                      label={t('auth.form.passport')}
                       name="passportId"
-                      rules={[{ required: true, message: 'Passport ma’lumotini kiriting' }]}
+                      rules={[{ required: true, message: t('auth.completeProfile.passportRequired') }]}
                     >
                       <Input size="large" placeholder="AA1234567" />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
-                    <Form.Item label="Parol o‘rnatish" name="password">
+                    <Form.Item label={t('auth.completeProfile.passwordSet')} name="password">
                       <Input.Password size="large" autoComplete="new-password" />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
                     <Form.Item
-                      label="Parolni tasdiqlash"
+                      label={t('auth.completeProfile.confirmPassword')}
                       name="confirmPassword"
                       dependencies={['password']}
                       rules={[
@@ -177,14 +199,14 @@ export const CompleteProfilePage = () => {
                             }
 
                             if (password && !value) {
-                              return Promise.reject(new Error('Parolni tasdiqlang'));
+                              return Promise.reject(new Error(t('auth.completeProfile.confirmPasswordRequired')));
                             }
 
                             if (password === value) {
                               return Promise.resolve();
                             }
 
-                            return Promise.reject(new Error('Parollar mos emas'));
+                            return Promise.reject(new Error(t('auth.completeProfile.confirmPasswordMismatch')));
                           },
                         }),
                       ]}
@@ -197,7 +219,7 @@ export const CompleteProfilePage = () => {
                 <Form.Item style={{ marginBottom: 0 }}>
                   <Space wrap>
                     <Button type="primary" htmlType="submit" size="large" loading={loading}>
-                      Profilni saqlash
+                      {t('auth.completeProfile.save')}
                     </Button>
                     <Button size="large" onClick={() => navigate(PATH_COURSE.catalog)}>
                       Hozircha o‘tkazib turish

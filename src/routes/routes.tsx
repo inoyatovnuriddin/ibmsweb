@@ -4,10 +4,12 @@ import {
   CompleteProfilePage,
   CourseLearningPage,
   CoursesPage,
+  DashboardCertificatesPage,
   DashboardCourseMonitoringPage,
   DashboardCoursesPage,
   DashboardGroupDetailsPage,
   DashboardGroupsPage,
+  DashboardPublicContactRequestsPage,
   DashboardQrCodePage,
   DashboardTestsPage,
   DashboardUsersPage,
@@ -39,8 +41,9 @@ import {
 } from '../pages';
 import { DashboardLayout, GuestLayout, UserAccountLayout } from '../layouts';
 import React, { ReactNode, useEffect } from 'react';
-import { ProtectedRoute } from './ProtectedRoute.tsx';
-import { DiplomaQrPage } from '../pages/diploma';
+import { ProtectedRoute, RequirePage, RequireSuperAdmin } from './ProtectedRoute.tsx';
+import { CertificateVerifyPage } from '../pages/certificate';
+import { DashboardRolesPage } from '../pages/dashboards';
 
 export const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -106,14 +109,14 @@ const router = createBrowserRouter([
     ],
   },
   {
-    path: '/diploma/:diplomaId/qr',
-    element: <DiplomaQrPage />,
+    path: '/cert/:id',
+    element: <CertificateVerifyPage />,
     errorElement: <ErrorPage />,
   },
   {
     path: '/admin',
     element: (
-      <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+      <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']} requireAnyPermission>
         <PageWrapper>
           <DashboardLayout />
         </PageWrapper>
@@ -123,18 +126,18 @@ const router = createBrowserRouter([
     children: [
       {
         path: 'groups',
-        element: <DashboardGroupsPage />,
+        element: <RequirePage page="groups" children={<DashboardGroupsPage />} />,
       },
       {
         path: 'groups/:groupId',
-        element: <DashboardGroupDetailsPage />,
+        element: <RequirePage page="groups" children={<DashboardGroupDetailsPage />} />,
       },
     ],
   },
   {
     path: '/dashboards',
     element: (
-      <ProtectedRoute allowedRoles={['ROLE_ADMIN']}>
+      <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']} requireAnyPermission>
         <PageWrapper>
           <DashboardLayout />
         </PageWrapper>
@@ -145,40 +148,60 @@ const router = createBrowserRouter([
       {
         index: true,
         path: 'courses',
-        element: <DashboardCoursesPage />,
+        element: <RequirePage page="courses" children={<DashboardCoursesPage />} />,
       },
       {
         path: 'topics',
-        element: <Topics />,
+        element: <RequirePage page="topics" children={<Topics />} />,
       },
       {
         path: 'videos',
-        element: <DashboardVideosPage />,
+        element: <RequirePage page="videos" children={<DashboardVideosPage />} />,
       },
       {
         path: 'users',
-        element: <DashboardUsersPage />,
+        element: <RequirePage page="users" children={<DashboardUsersPage />} />,
       },
       {
         path: 'qrCode',
-        element: <DashboardQrCodePage />,
+        element: <RequirePage page="qrCode" children={<DashboardQrCodePage />} />,
+      },
+      {
+        path: 'certificates',
+        element: <RequirePage page="certificates" children={<DashboardCertificatesPage />} />,
       },
       {
         path: 'tests',
-        element: <DashboardTestsPage />,
+        element: <RequirePage page="tests" children={<DashboardTestsPage />} />,
       },
       {
         path: 'monitoring',
-        element: <DashboardCourseMonitoringPage />,
+        element: <RequirePage page="monitoring" children={<DashboardCourseMonitoringPage />} />,
+      },
+      {
+        path: 'groups',
+        element: <RequirePage page="groups" children={<DashboardGroupsPage />} />,
+      },
+      {
+        path: 'groups/:groupId',
+        element: <RequirePage page="groups" children={<DashboardGroupDetailsPage />} />,
+      },
+      {
+        path: 'contact-requests',
+        element: (
+          <RequirePage page="contactRequests" children={<DashboardPublicContactRequestsPage />} />
+        ),
+      },
+      {
+        path: 'roles',
+        element: <RequireSuperAdmin children={<DashboardRolesPage />} />,
       },
     ],
   },
   {
     path: '/user-profile',
     element: (
-      <ProtectedRoute
-        allowedRoles={['ROLE_ADMIN', 'ROLE_USER', 'ROLE_INSTRUCTOR']}
-      >
+      <ProtectedRoute>
         <PageWrapper children={<UserAccountLayout />} />
       </ProtectedRoute>
     ),

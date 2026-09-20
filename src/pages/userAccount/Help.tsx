@@ -1,176 +1,116 @@
-import { Alert, Button, Flex, Input, TabsProps, Typography } from 'antd';
-import { Card, FaqCollapse, Loader } from '../../components';
-import {
-  DollarOutlined,
-  PullRequestOutlined,
-  RocketOutlined,
-  SettingOutlined,
-  UnorderedListOutlined,
-} from '@ant-design/icons';
-import { createElement, useEffect, useState } from 'react';
-import * as _ from 'lodash';
-import FaqsData from '../../../public/mocks/Faqs.json';
-import { TitleProps } from 'antd/es/typography/Title';
-import { useMediaQuery } from 'react-responsive';
-import { useFetchData } from '../../hooks';
+import { useState } from 'react';
+import { Button, Collapse, Form, Input, message, Space, theme, Typography } from 'antd';
+import { CustomerServiceOutlined, QuestionCircleOutlined, SendOutlined } from '@ant-design/icons';
+import { useSelector } from 'react-redux';
+import { Card } from '../../components';
+import type { RootState } from '../../redux/store.ts';
+import { submitPublicContactRequest } from '../../services/publicContact.ts';
 
 const { Text, Title } = Typography;
 
-const TOPICS = [
+const FAQ = [
   {
-    title: 'get started',
-    image: RocketOutlined,
+    q: 'Kursni qanday boshlayman?',
+    a: 'Profil menyusidagi "Mening oʻqishlarim" boʻlimiga oʻting, kerakli kursni tanlab "Davom ettirish" tugmasini bosing.',
   },
   {
-    title: 'features',
-    image: UnorderedListOutlined,
+    q: 'Sertifikatimni qayerdan olaman?',
+    a: 'Kursni toʻliq yakunlaganingizdan soʻng administrator sertifikat tayyorlaydi. Sertifikatdagi QR-kod orqali uni tekshirish mumkin.',
   },
   {
-    title: 'billing',
-    image: DollarOutlined,
+    q: 'Shaxsiy maʼlumotlarimni oʻzgartira olmayapman.',
+    a: 'Xavfsizlik maqsadida shaxsiy maʼlumotlarni faqat administrator oʻzgartiradi. Iltimos, administratorga murojaat qiling.',
   },
   {
-    title: 'troubleshooting',
-    image: SettingOutlined,
-  },
-  {
-    title: 'integrations',
-    image: PullRequestOutlined,
+    q: 'Parolimni unutdim, nima qilaman?',
+    a: '"Harakatlar" boʻlimidan "Parolni tiklash havolasi" tugmasini bosing — emailingizga tiklash havolasi keladi.',
   },
 ];
-
-const OTHER_TOPICS = [
-  {
-    title: 'Getting started guide',
-    description:
-      "Not sure where to start? Get going with our easy-to-follow beginner's guide to Antd Dashboard.",
-    action: 'Get started',
-  },
-  {
-    title: "What's new",
-    description:
-      'All the upgrades and improvements that‘ll better help you organize it all.',
-    action: "See what's new",
-  },
-  {
-    title: 'Known issues',
-    description:
-      'The bugs with fixes in the works. Check here before shooting us a message.',
-    action: 'Consult the list',
-  },
-];
-
-const TITLE_PROPS: TitleProps = {
-  style: {
-    marginBottom: 0,
-    textAlign: 'center',
-  },
-  level: 3,
-};
 
 export const UserProfileHelpPage = () => {
-  const [activeTabKey, setActiveTabKey] = useState<string>('Account');
-  const [tabList, setTabList] = useState<TabsProps['items']>([]);
-  const isMobile = useMediaQuery({ maxWidth: 600 });
   const {
-    data: faqsData,
-    loading: faqsDataLoading,
-    error: faqsDataError,
-  } = useFetchData('../mocks/Faqs.json');
+    token: { colorText, colorTextSecondary },
+  } = theme.useToken();
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const [form] = Form.useForm<{ message: string }>();
+  const [submitting, setSubmitting] = useState(false);
 
-  const onTabChange = (key: string) => {
-    setActiveTabKey(key);
+  const onSubmit = async (values: { message: string }) => {
+    setSubmitting(true);
+    try {
+      await submitPublicContactRequest({
+        fullName:
+          [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ') ||
+          'Foydalanuvchi',
+        phoneNumber: currentUser?.phoneNumber || '',
+        message: values.message.trim(),
+        sourcePage: 'profile-help',
+        formSessionId: `help-${currentUser?.id || 'anon'}-${Date.now()}`,
+      });
+      message.success('Murojaatingiz yuborildi. Tez orada bogʻlanamiz.');
+      form.resetFields();
+    } catch {
+      message.error('Yuborishda xatolik yuz berdi');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  useEffect(() => {
-    const tabs = _.chain(FaqsData)
-      .orderBy('category')
-      .uniqBy('category')
-      .map((d) => ({
-        key: d.category,
-        label: d.category,
-      }))
-      .value();
-
-    console.log(tabs);
-    setTabList(tabs);
-  }, []);
-
   return (
-    <div>
-      <Flex vertical gap="large">
-        <Flex vertical gap="middle">
-          <Title {...TITLE_PROPS}>How can we help?</Title>
-          <Input.Search placeholder="search articles..." />
-        </Flex>
-        <Flex gap="middle" wrap={isMobile ? 'wrap' : 'nowrap'}>
-          {TOPICS.map((t) => (
-            <Card
-              hoverable
-              style={{
-                width: isMobile ? '100%' : '25%',
-                textAlign: 'center',
-              }}
-            >
-              <Flex vertical gap="middle">
-                {createElement(t.image, {
-                  style: { fontSize: '1.5rem', margin: 'auto' },
-                })}
-                <Text style={{ textTransform: 'capitalize' }}>{t.title}</Text>
-              </Flex>
-            </Card>
-          ))}
-        </Flex>
-        <Flex gap="middle" wrap={isMobile ? 'wrap' : 'nowrap'}>
-          {OTHER_TOPICS.map((t) => (
-            <Card
-              key={t.title}
-              title={t.title}
-              actions={[<Button>{t.action}</Button>]}
-            >
-              <Text>{t.description}</Text>
-            </Card>
-          ))}
-        </Flex>
-        <Title {...TITLE_PROPS}>Frequently asked questions</Title>
-        <Text>
-          Our website has a list of questions and answers that aim to provide
-          clarity on a particular subject. If you need assistance, feel free to
-          check out our FAQs.
+    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Space align="center" size={12} style={{ marginBottom: 4 }}>
+          <QuestionCircleOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+          <Title level={4} style={{ margin: 0, color: colorText }}>
+            Koʻp beriladigan savollar
+          </Title>
+        </Space>
+        <Text style={{ color: colorTextSecondary }}>
+          Eng koʻp uchraydigan savollarga javoblar.
         </Text>
-        <Card
-          tabList={tabList}
-          activeTabKey={activeTabKey}
-          tabBarExtraContent={<Button type="link">Go to FAQs</Button>}
-          onTabChange={onTabChange}
-          tabProps={{
-            size: 'middle',
-          }}
-        >
-          {faqsDataError ? (
-            <Alert
-              message="Error"
-              description={faqsDataError.toString()}
-              type="error"
-              showIcon
+
+        <Collapse
+          style={{ marginTop: 18, background: 'transparent' }}
+          bordered={false}
+          items={FAQ.map((item, i) => ({
+            key: String(i),
+            label: <Text strong>{item.q}</Text>,
+            children: <Text style={{ color: colorTextSecondary }}>{item.a}</Text>,
+          }))}
+        />
+      </Card>
+
+      <Card style={{ borderRadius: 24, boxShadow: 'var(--color-shadow-soft)' }} bodyStyle={{ padding: 24 }}>
+        <Space align="center" size={12} style={{ marginBottom: 4 }}>
+          <CustomerServiceOutlined style={{ fontSize: 20, color: '#2563eb' }} />
+          <Title level={4} style={{ margin: 0, color: colorText }}>
+            Qoʻllab-quvvatlashga murojaat
+          </Title>
+        </Space>
+        <Text style={{ color: colorTextSecondary }}>
+          Savolingizga javob topa olmadingizmi? Bizga yozing — administrator koʻrib chiqadi.
+        </Text>
+
+        <Form form={form} layout="vertical" onFinish={onSubmit} style={{ marginTop: 16 }}>
+          <Form.Item
+            name="message"
+            rules={[
+              { required: true, message: 'Xabar matnini kiriting' },
+              { min: 10, message: 'Kamida 10 ta belgi' },
+            ]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="Muammoingizni yoki savolingizni batafsil yozing…"
             />
-          ) : faqsDataLoading ? (
-            <Loader />
-          ) : (
-            <FaqCollapse
-              bordered
-              items={_.chain(faqsData)
-                .filter((d) => d.category === activeTabKey)
-                .slice(0, 5)
-                .map((i) => ({
-                  label: `${i.question.slice(0, 50)}`,
-                  children: i.answer,
-                }))
-                .value()}
-            />
-          )}
-        </Card>
-      </Flex>
-    </div>
+          </Form.Item>
+          <div style={{ textAlign: 'right' }}>
+            <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={submitting}>
+              Yuborish
+            </Button>
+          </div>
+        </Form>
+      </Card>
+    </Space>
   );
 };

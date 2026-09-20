@@ -8,6 +8,8 @@ export type MonitoringStatus =
   | 'FAILED'
   | 'LOCKED';
 
+export type MonitoringLessonType = 'VIDEO' | 'DOCUMENT' | 'TEST';
+
 export interface MonitoringRowDto {
   id: string;
   userId: string;
@@ -31,9 +33,53 @@ export interface MonitoringRowDto {
   completedAt?: string;
 }
 
+export interface MonitoringSummaryDto {
+  total: number;
+  notStartedCount: number;
+  inProgressCount: number;
+  completedCount: number;
+  failedCount: number;
+  averageProgress: number;
+}
+
 export interface MonitoringListPayload {
   list: MonitoringRowDto[];
   total: number;
+  summary: MonitoringSummaryDto;
+}
+
+export interface MonitoringLessonDetailDto {
+  lessonItemId: string;
+  title: string;
+  type: MonitoringLessonType;
+  status: MonitoringStatus;
+  score?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface MonitoringModuleDetailDto {
+  moduleId: string;
+  title: string;
+  status: MonitoringStatus;
+  progressPercent: number;
+  lessons: MonitoringLessonDetailDto[];
+}
+
+export interface MonitoringDetailDto {
+  userId: string;
+  userFullName: string;
+  email: string;
+  phoneNumber: string;
+  courseId: string;
+  courseTitle: string;
+  status: MonitoringStatus;
+  progressPercent: number;
+  averageScore?: number | null;
+  startedAt?: string | null;
+  lastActivityAt?: string | null;
+  completedAt?: string | null;
+  modules: MonitoringModuleDetailDto[];
 }
 
 const normalizeStatus = (value?: unknown): MonitoringStatus => {
@@ -52,6 +98,18 @@ const normalizeStatus = (value?: unknown): MonitoringStatus => {
   }
 
   return 'NOT_STARTED';
+};
+
+const normalizeLessonType = (value?: unknown): MonitoringLessonType => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase();
+
+  if (normalized === 'DOCUMENT' || normalized === 'TEST') {
+    return normalized;
+  }
+
+  return 'VIDEO';
 };
 
 const pickString = (...values: unknown[]) => {
@@ -112,11 +170,45 @@ const normalizeMonitoringRow = (
   };
 };
 
+const normalizeSummary = (
+  raw: Record<string, any> | undefined,
+  rows: MonitoringRowDto[],
+  total: number
+): MonitoringSummaryDto => {
+  if (raw && typeof raw === 'object') {
+    return {
+      total: pickNumber(raw.total, total),
+      notStartedCount: pickNumber(raw.notStartedCount),
+      inProgressCount: pickNumber(raw.inProgressCount),
+      completedCount: pickNumber(raw.completedCount),
+      failedCount: pickNumber(raw.failedCount),
+      averageProgress: pickNumber(raw.averageProgress),
+    };
+  }
+
+  const countBy = (status: MonitoringStatus) =>
+    rows.filter((row) => row.status === status).length;
+
+  return {
+    total,
+    notStartedCount: countBy('NOT_STARTED') + countBy('LOCKED'),
+    inProgressCount: countBy('IN_PROGRESS'),
+    completedCount: countBy('COMPLETED'),
+    failedCount: countBy('FAILED'),
+    averageProgress: rows.length
+      ? Math.round(
+          rows.reduce((sum, row) => sum + row.progressPercent, 0) / rows.length
+        )
+      : 0,
+  };
+};
+
 export const getMonitoring = async (params: {
   start?: number;
   limit?: number;
   searchKey?: string;
   status?: string;
+  courseId?: string;
 }) => {
   const response = await apiClient.get<Response<any>>('/v1/lms/progress/admin/monitoring', {
     params,
@@ -131,11 +223,67 @@ export const getMonitoring = async (params: {
         ? payload
         : [];
 
+  const rows: MonitoringRowDto[] = list.map(
+    (item: Record<string, any>, index: number) => normalizeMonitoringRow(item, index)
+  );
+  const total = pickNumber(payload.total, payload.totalElements, list.length);
+
   return {
-    list: list.map((item: Record<string, any>, index: number) =>
-      normalizeMonitoringRow(item, index)
-    ),
-    total: pickNumber(payload.total, payload.totalElements, list.length),
+    list: rows,
+    total,
+    summary: normalizeSummary(payload.summary, rows, total),
   } satisfies MonitoringListPayload;
 };
 
+/** Remove one student's progress for one course (resets the monitoring row). */
+export const deleteMonitoring = async (userId: string, courseId: string) => {
+  await apiClient.delete('/v1/lms/progress/admin/monitoring', {
+    params: { userId, courseId },
+  });
+};
+
+export const getMonitoringDetail = async (userId: string, courseId: string) => {
+  const response = await apiClient.get<Response<any>>(
+    '/v1/lms/progress/admin/monitoring/detail',
+    {
+      params: { userId, courseId },
+    }
+  );
+
+  const payload = response.data?.payload ?? {};
+  const modules: MonitoringModuleDetailDto[] = Array.isArray(payload.modules)
+    ? payload.modules.map((module: Record<string, any>) => ({
+        moduleId: String(module.moduleId ?? ''),
+        title: pickString(module.title, 'Modul'),
+        status: normalizeStatus(module.status),
+        progressPercent: Math.max(0, Math.min(100, pickNumber(module.progressPercent))),
+        lessons: Array.isArray(module.lessons)
+          ? module.lessons.map((lesson: Record<string, any>) => ({
+              lessonItemId: String(lesson.lessonItemId ?? ''),
+              title: pickString(lesson.title, 'Dars'),
+              type: normalizeLessonType(lesson.type),
+              status: normalizeStatus(lesson.status),
+              score: typeof lesson.score === 'number' ? lesson.score : null,
+              startedAt: lesson.startedAt ?? null,
+              completedAt: lesson.completedAt ?? null,
+            }))
+          : [],
+      }))
+    : [];
+
+  return {
+    userId: String(payload.userId ?? userId),
+    userFullName: pickString(payload.userFullName, 'O‘quvchi'),
+    email: pickString(payload.email),
+    phoneNumber: pickString(payload.phoneNumber),
+    courseId: String(payload.courseId ?? courseId),
+    courseTitle: pickString(payload.courseTitle, 'Kurs'),
+    status: normalizeStatus(payload.status),
+    progressPercent: Math.max(0, Math.min(100, pickNumber(payload.progressPercent))),
+    averageScore: typeof payload.averageScore === 'number' ? payload.averageScore : null,
+    startedAt: payload.startedAt ?? null,
+    lastActivityAt: payload.lastActivityAt ?? null,
+    completedAt: payload.completedAt ?? null,
+    modules,
+  } satisfies MonitoringDetailDto;
+};

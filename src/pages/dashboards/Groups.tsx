@@ -14,6 +14,7 @@ import {
   Space,
   Switch,
   Table,
+  theme,
   Typography,
 } from 'antd';
 import {
@@ -75,6 +76,7 @@ const formatDate = (value: string) => {
 };
 
 export const DashboardGroupsPage = () => {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const [form] = Form.useForm<GroupFormValues>();
   const [groups, setGroups] = useState<StudentGroupItem[]>([]);
@@ -242,10 +244,10 @@ export const DashboardGroupsPage = () => {
       key: 'group',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong style={{ color: '#102a43' }}>
+          <Text strong style={{ color: token.colorText }}>
             {record.name}
           </Text>
-          <Text style={{ color: '#64748b' }}>
+          <Text style={{ color: token.colorTextSecondary }}>
             {record.description || 'Tavsif kiritilmagan'}
           </Text>
         </Space>
@@ -395,16 +397,16 @@ export const DashboardGroupsPage = () => {
                 <div
                   style={{
                     borderRadius: 18,
-                    border: '1px solid rgba(148,163,184,0.14)',
-                    background: '#f8fbff',
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    background: token.colorBgContainer,
                     padding: 16,
                     minHeight: 96,
                     display: 'grid',
                     alignContent: 'space-between',
                   }}
                 >
-                  <Text style={{ color: '#64748b' }}>{item.title}</Text>
-                  <Text strong style={{ fontSize: 28, color: '#102a43' }}>
+                  <Text style={{ color: token.colorTextSecondary }}>{item.title}</Text>
+                  <Text strong style={{ fontSize: 28, color: token.colorText }}>
                     {item.value}
                   </Text>
                 </div>
@@ -470,7 +472,7 @@ export const DashboardGroupsPage = () => {
             label="Faollik holati"
             valuePropName="checked"
             extra={
-              <Paragraph style={{ margin: '6px 0 0', color: '#64748b' }}>
+              <Paragraph style={{ margin: '6px 0 0', color: token.colorTextSecondary }}>
                 Nofaol guruh talabalarga kurs ruxsati bermaydi.
               </Paragraph>
             }

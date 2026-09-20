@@ -1,38 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
-  Alert,
   Button,
-  Card,
   Drawer,
   Empty,
   message,
+  Modal,
   Progress,
   Radio,
   Space,
   Spin,
-  Tabs,
   Tag,
   Typography,
 } from 'antd';
 import {
-  BookOutlined,
+  ArrowLeftOutlined,
   CheckCircleFilled,
   DownloadOutlined,
   FileTextOutlined,
-  FolderOpenOutlined,
   LeftOutlined,
   LockOutlined,
   MenuOutlined,
   PlayCircleOutlined,
-  ProfileOutlined,
   RightOutlined,
   SafetyCertificateOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
-import { Container } from '../../components';
-import { PATH_AUTH, PATH_COURSE } from '../../constants';
+import { PATH_AUTH, PATH_COURSE, PATH_USER_PROFILE } from '../../constants';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 import {
   completeLessonProgress,
   getCourseAssets,
@@ -46,36 +43,29 @@ import {
   submitTestProgress,
 } from './courseApi.ts';
 import {
-  buildLearningTopics,
-  createEmptyProgressSnapshot,
-  findFirstTopicEntry,
-  getLessonItemId,
-  getLessonProgress,
-  getTopicCompletion,
-  normalizeStatus,
+  buildCourseOutline,
+  getFilePreviewKind,
+  localizeCourseText,
   pickCourseDescription,
   pickCourseTitle,
-  resolveVideoEmbedUrl,
+} from './courseUtils.ts';
+import type {
+  CourseOutlineItem,
+  CourseOutlineTopic,
 } from './courseUtils.ts';
 import type {
   CourseAssetBundle,
   CourseQuestionRecord,
   CourseRecord,
   CourseTopicRecord,
-  LearningMaterial,
-  LearningTopic,
   ProgressSnapshot,
+  ProgressStatus,
 } from './types.ts';
 import './styles.css';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Title, Paragraph } = Typography;
 
 const DEFAULT_PASS_SCORE = 70;
-
-type TopicAssetState = CourseAssetBundle & {
-  loaded: boolean;
-  loading: boolean;
-};
 
 type QuestionState = {
   loaded: boolean;
@@ -84,17 +74,9 @@ type QuestionState = {
   passScore: number;
 };
 
-type TestResultState = {
-  scorePercent: number;
-  solvedCount: number;
-  totalQuestions: number;
-  status: string;
-};
-
-type OrderedTopicLesson = {
-  topicId: string;
+type FlatItem = CourseOutlineItem & {
+  topicIndex: number;
   topicTitle: string;
-  lesson: NonNullable<LearningTopic['lessons'][number]>;
   index: number;
 };
 
@@ -103,30 +85,29 @@ export const CourseLearningPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery({ maxWidth: 992 });
+  const { t, language } = useAppTranslation();
   const [messageApi, contextHolder] = message.useMessage();
-  const [course, setCourse] = useState<CourseRecord | null>(null);
-  const [topicsRaw, setTopicsRaw] = useState<CourseTopicRecord[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [starting, setStarting] = useState(false);
+  const [course, setCourse] = useState<CourseRecord | null>(null);
+  const [topicsRaw, setTopicsRaw] = useState<CourseTopicRecord[]>([]);
+  const [assetMap, setAssetMap] = useState<Record<string, CourseAssetBundle>>({});
+  const [snapshot, setSnapshot] = useState<ProgressSnapshot | null>(null);
+  const [currentKey, setCurrentKey] = useState('');
+  const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedTopicId, setSelectedTopicId] = useState<string>('');
-  const [selectedLessonId, setSelectedLessonId] = useState<string>('');
-  const [openedTopicId, setOpenedTopicId] = useState<string | null>(null);
-  const [progressSnapshot, setProgressSnapshot] = useState<ProgressSnapshot | null>(
-    null
-  );
-  const [assetMap, setAssetMap] = useState<Record<string, TopicAssetState>>({});
-  const [questionMap, setQuestionMap] = useState<Record<string, QuestionState>>({});
-  const [testAnswers, setTestAnswers] = useState<Record<string, Record<string, number>>>(
-    {}
-  );
-  const [testResults, setTestResults] = useState<Record<string, TestResultState>>({});
+  const [starting, setStarting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [previewTab, setPreviewTab] = useState<'video' | 'materials'>('video');
-  const [selectedMaterialIds, setSelectedMaterialIds] = useState<
-    Record<string, string>
-  >({});
+  const [questionMap, setQuestionMap] = useState<Record<string, QuestionState>>({});
+  const [answers, setAnswers] = useState<Record<string, Record<string, number>>>({});
+  const [finishModalOpen, setFinishModalOpen] = useState(false);
+
+  const formatText = (key: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce(
+      (result, [token, value]) => result.split(`{${token}}`).join(String(value)),
+      t(key)
+    );
 
   const isAccessDeniedError = (error: unknown) =>
     typeof error === 'object' &&
@@ -135,98 +116,14 @@ export const CourseLearningPage = () => {
     ((error as { response?: { status?: number } }).response?.status === 403 ||
       (error as { response?: { status?: number } }).response?.status === 404);
 
-  const ensureTopicAssets = async (topicId: string) => {
-    const existing = assetMap[topicId];
-    if (existing?.loaded || existing?.loading) {
-      return existing ?? { videos: [], tests: [], loaded: false, loading: true };
-    }
-
-    setAssetMap((current) => ({
-      ...current,
-      [topicId]: {
-        videos: current[topicId]?.videos || [],
-        tests: current[topicId]?.tests || [],
-        loaded: false,
-        loading: true,
-      },
-    }));
-
-    try {
-      const bundle = await getCourseAssets(topicId);
-      const nextState = {
-        ...bundle,
-        loaded: true,
-        loading: false,
-      };
-      setAssetMap((current) => ({
-        ...current,
-        [topicId]: nextState,
-      }));
-      return nextState;
-    } catch {
-      messageApi.error('Mavzu materiallarini yuklashda xatolik yuz berdi.');
-      const emptyState = {
-        videos: [],
-        tests: [],
-        loaded: true,
-        loading: false,
-      };
-      setAssetMap((current) => ({
-        ...current,
-        [topicId]: emptyState,
-      }));
-      return emptyState;
-    }
-  };
-
-  const loadQuestions = async (topicId: string, testId: string) => {
-    const existing = questionMap[testId];
-    if (existing?.loaded || existing?.loading) return existing?.questions || [];
-
-    setQuestionMap((current) => ({
-      ...current,
-      [testId]: {
-        loaded: false,
-        loading: true,
-        questions: [],
-        passScore: DEFAULT_PASS_SCORE,
-      },
-    }));
-
-    try {
-      const payload = await getLearnerTest(topicId);
-      const questions = payload?.questions || [];
-      setQuestionMap((current) => ({
-        ...current,
-        [testId]: {
-          loaded: true,
-          loading: false,
-          questions,
-          passScore: payload?.passScore || DEFAULT_PASS_SCORE,
-        },
-      }));
-      return questions;
-    } catch {
-      messageApi.error('Test savollarini yuklashda xatolik yuz berdi.');
-      setQuestionMap((current) => ({
-        ...current,
-        [testId]: {
-          loaded: true,
-          loading: false,
-          questions: [],
-          passScore: DEFAULT_PASS_SCORE,
-        },
-      }));
-      return [];
-    }
-  };
+  // ---------- Yuklash ----------
 
   useEffect(() => {
     let isMounted = true;
 
     const bootstrap = async () => {
       if (!isAuthenticated()) {
-        messageApi.warning('Kurslarni ko‘rish uchun avval tizimga kiring.');
+        messageApi.warning(t('course.learn.msg.notAuth'));
         navigate(PATH_AUTH.signin, {
           state: { from: `${location.pathname}${location.search}` },
           replace: true,
@@ -237,13 +134,11 @@ export const CourseLearningPage = () => {
       setLoading(true);
       try {
         const courseData = await getCourseById(courseId);
-
         if (!isMounted) return;
         setCourse(courseData);
-        setAccessDenied(false);
 
         let topicsData: CourseTopicRecord[] = [];
-        let progressData: ProgressSnapshot;
+        let progressData: ProgressSnapshot | null = null;
 
         try {
           [topicsData, progressData] = await Promise.all([
@@ -254,48 +149,37 @@ export const CourseLearningPage = () => {
           if (isAccessDeniedError(error)) {
             if (!isMounted) return;
             setAccessDenied(true);
-            setTopicsRaw([]);
-            setProgressSnapshot(createEmptyProgressSnapshot(courseId));
-            setSelectedTopicId('');
-            setSelectedLessonId('');
             return;
           }
-
           throw error;
         }
 
+        // Barcha mavzular tarkibini birdaniga yuklaymiz — to'liq playlist ko'rinadi
+        const bundles = await Promise.all(
+          topicsData.map((topic) =>
+            getCourseAssets(topic.id).catch(
+              () => ({ videos: [], tests: [] }) as CourseAssetBundle
+            )
+          )
+        );
         if (!isMounted) return;
 
-        setTopicsRaw(topicsData);
-        setProgressSnapshot(progressData);
+        const nextAssetMap: Record<string, CourseAssetBundle> = {};
+        topicsData.forEach((topic, index) => {
+          nextAssetMap[topic.id] = bundles[index];
+        });
 
-        if (topicsData.length > 0) {
-          const firstTopicId = topicsData[0].id;
-          setSelectedTopicId(firstTopicId);
-          setOpenedTopicId(firstTopicId);
-          const assets = await ensureTopicAssets(firstTopicId);
-          if (!isMounted) return;
-          const firstTopic = buildLearningTopics([topicsData[0]], {
-            [firstTopicId]: assets,
-          })[0];
-          const firstEntry = findFirstTopicEntry(firstTopic ? [firstTopic] : []);
-          setSelectedLessonId(firstEntry?.lesson?.id || '');
-          if (!firstEntry?.lesson && firstEntry?.material) {
-            setSelectedMaterialIds((current) => ({
-              ...current,
-              [firstTopicId]: firstEntry.material.id,
-            }));
-            setPreviewTab('materials');
-          }
-        }
+        setTopicsRaw(topicsData);
+        setAssetMap(nextAssetMap);
+        setSnapshot(progressData);
+        setAccessDenied(false);
       } catch (error) {
         if (!isMounted) return;
         if (isAccessDeniedError(error)) {
-          messageApi.error('Bu kurs sizga hali biriktirilmagan.');
           setAccessDenied(true);
           return;
         }
-        messageApi.error('Kurs ma’lumotlarini yuklashda xatolik yuz berdi.');
+        messageApi.error(t('course.learn.msg.courseLoadError'));
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -308,1208 +192,886 @@ export const CourseLearningPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [courseId, location.pathname, location.search, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId]);
 
-  const learningTopics = useMemo(
-    () =>
-      buildLearningTopics(
-        topicsRaw,
-        Object.fromEntries(
-          Object.entries(assetMap).map(([topicId, state]) => [
-            topicId,
-            {
-              videos: state.videos,
-              tests: state.tests,
-            },
-          ])
-        )
-      ),
-    [assetMap, topicsRaw]
+  // ---------- Hosila holatlar ----------
+
+  const outline = useMemo<CourseOutlineTopic[]>(
+    () => buildCourseOutline(topicsRaw, assetMap, language),
+    [assetMap, language, topicsRaw]
   );
 
-  const orderedLessons = useMemo<OrderedTopicLesson[]>(
-    () => {
-      let counter = 0;
-      return learningTopics.flatMap((topic) =>
-        topic.lessons.map((lesson) => ({
-          topicId: topic.id,
-          topicTitle: topic.title,
-          lesson,
-          index: counter++,
-        }))
-      );
-    },
-    [learningTopics]
-  );
-
-  const firstPendingLessonIndex = useMemo(
-    () =>
-      orderedLessons.findIndex(({ lesson }) => {
-        const progress = getLessonProgress(progressSnapshot, getLessonItemId(lesson));
-        return progress?.status !== 'COMPLETED';
-      }),
-    [orderedLessons, progressSnapshot]
-  );
-
-  const selectedTopic = useMemo(
-    () => learningTopics.find((topic) => topic.id === selectedTopicId) || null,
-    [learningTopics, selectedTopicId]
-  );
-
-  const selectedLesson = useMemo(() => {
-    if (!selectedTopic) return null;
-    return (
-      selectedTopic.lessons.find((lesson) => lesson.id === selectedLessonId) || null
+  const items = useMemo<FlatItem[]>(() => {
+    let counter = 0;
+    return outline.flatMap((topic, topicIndex) =>
+      topic.items.map((item) => ({
+        ...item,
+        topicIndex,
+        topicTitle: topic.title,
+        index: counter++,
+      }))
     );
-  }, [selectedLessonId, selectedTopic]);
+  }, [outline]);
 
-  const selectedLessonProgress = selectedLesson
-    ? getLessonProgress(progressSnapshot, getLessonItemId(selectedLesson))
-    : null;
+  const statusMap = useMemo(() => {
+    const map = new Map<string, ProgressStatus>();
+    (snapshot?.lessons || []).forEach((lesson) => {
+      map.set(lesson.lessonItemId, lesson.status);
+    });
+    return map;
+  }, [snapshot]);
 
-  const selectedMaterials = selectedTopic?.materials || [];
-  const selectedMaterial =
-    selectedMaterials.find(
-      (material) => material.id === selectedMaterialIds[selectedTopicId]
-    ) || selectedMaterials[0] || null;
+  const statusOf = (key: string): ProgressStatus => {
+    const known = statusMap.get(key);
+    if (known) return known;
+    // Snapshot to'liq bo'lsa, unda yo'q element yopiq hisoblanadi
+    return statusMap.size > 0 ? 'LOCKED' : 'NOT_STARTED';
+  };
+
+  const scoreOf = (key: string) =>
+    snapshot?.lessons.find((lesson) => lesson.lessonItemId === key)?.score ?? null;
+
+  const currentItem = items.find((item) => item.key === currentKey) || null;
+  const prevItem = currentItem ? items[currentItem.index - 1] || null : null;
+  const nextItem = currentItem ? items[currentItem.index + 1] || null : null;
+  const nextAllowed = Boolean(nextItem && statusOf(nextItem.key) !== 'LOCKED');
+
   const courseStarted =
-    progressSnapshot?.course.status !== 'NOT_STARTED' ||
-    Boolean(progressSnapshot?.course.startedAt);
+    snapshot?.course.status !== 'NOT_STARTED' || Boolean(snapshot?.course.startedAt);
+  const courseCompleted = snapshot?.course.status === 'COMPLETED';
+  const progressPercent = snapshot?.course.progressPercent || 0;
 
-  const currentQuestions = selectedLesson?.testId
-    ? questionMap[selectedLesson.testId]?.questions || []
-    : [];
-  const currentPassScore = selectedLesson?.testId
-    ? questionMap[selectedLesson.testId]?.passScore || DEFAULT_PASS_SCORE
-    : DEFAULT_PASS_SCORE;
+  const courseTitleText =
+    pickCourseTitle(
+      course || undefined,
+      language,
+      localizeCourseText(snapshot?.course.courseTitle, language) ||
+        t('courses.fallback.title')
+    ) || t('courses.fallback.title');
+  const courseDescriptionText = pickCourseDescription(
+    course || undefined,
+    language,
+    t('courses.fallback.description')
+  );
 
-  const currentTestAnswers = selectedLesson
-    ? testAnswers[selectedLesson.id] || {}
-    : {};
+  const resumeItem = useMemo(() => {
+    if (items.length === 0) return null;
+    return (
+      items.find((item) => {
+        const status = statusOf(item.key);
+        return status === 'IN_PROGRESS' || status === 'FAILED';
+      }) ||
+      items.find((item) => statusOf(item.key) === 'NOT_STARTED') ||
+      items[items.length - 1]
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, statusMap]);
 
-  const currentTestResult = selectedLesson ? testResults[selectedLesson.id] : null;
-
-  const getOrderedEntry = (lessonId?: string | null) =>
-    orderedLessons.find((entry) => entry.lesson.id === lessonId) || null;
-
-  const isLessonLocked = (lessonId: string) => {
-    const entry = getOrderedEntry(lessonId);
-    if (!entry) return false;
-
-    const progress = getLessonProgress(progressSnapshot, getLessonItemId(entry.lesson));
-    if (progress?.status === 'COMPLETED' || progress?.status === 'IN_PROGRESS') {
-      return false;
-    }
-
-    return firstPendingLessonIndex !== -1 && entry.index !== firstPendingLessonIndex;
-  };
-
-  const getSequentialLessonState = (lesson: LearningTopic['lessons'][number]) => {
-    const lessonProgress = getLessonProgress(progressSnapshot, getLessonItemId(lesson));
-
-    if (lessonProgress?.status === 'COMPLETED') return 'completed';
-    if (lessonProgress?.status === 'FAILED') return 'failed';
-    if (lessonProgress?.status === 'IN_PROGRESS') return 'active';
-    if (isLessonLocked(lesson.id)) return 'locked';
-
-    const topicEntry = getOrderedEntry(lesson.id);
-    const isCurrentPending =
-      topicEntry && firstPendingLessonIndex !== -1 && topicEntry.index === firstPendingLessonIndex;
-
-    if (selectedLessonId === lesson.id || isCurrentPending) return 'active';
-
-    return 'available';
-  };
-
-  const currentOrderedEntry = getOrderedEntry(selectedLessonId);
-  const previousLessonEntry =
-    currentOrderedEntry && currentOrderedEntry.index > 0
-      ? orderedLessons[currentOrderedEntry.index - 1]
-      : null;
-  const nextLessonEntry =
-    currentOrderedEntry &&
-    currentOrderedEntry.index < orderedLessons.length - 1
-      ? orderedLessons[currentOrderedEntry.index + 1]
-      : null;
-
-  const canAdvanceToNext =
-    !!selectedLesson &&
-    ((selectedLesson.type === 'TEST'
-      ? selectedLessonProgress?.status === 'COMPLETED'
-      : selectedLessonProgress?.status === 'COMPLETED') ||
-      false);
-
+  // Sahifa ochilganda davom etish nuqtasini tanlaymiz (API chaqirmasdan)
   useEffect(() => {
-    if (!selectedTopic || selectedTopic.materials.length === 0) {
-      return;
+    if (loading || currentKey || !courseStarted || !resumeItem) return;
+    setCurrentKey(resumeItem.key);
+    setOpenTopics((current) => ({ ...current, [resumeItem.topicId]: true }));
+    if (resumeItem.type === 'TEST') {
+      void ensureQuestions(resumeItem);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, courseStarted, resumeItem, currentKey]);
 
-    setSelectedMaterialIds((current) => {
-      if (current[selectedTopic.id]) {
-        return current;
-      }
+  // ---------- Amallar ----------
 
-      return {
-        ...current,
-        [selectedTopic.id]: selectedTopic.materials[0].id,
-      };
-    });
-  }, [selectedTopic]);
+  const ensureQuestions = async (item: CourseOutlineItem) => {
+    if (!item.testId) return;
+    const existing = questionMap[item.testId];
+    if (existing?.loaded || existing?.loading) return;
 
-  useEffect(() => {
-    if (selectedLesson?.type === 'VIDEO') {
-      setPreviewTab('video');
-      return;
-    }
-
-    if (!selectedLesson && selectedMaterials.length > 0) {
-      setPreviewTab('materials');
-    }
-  }, [selectedLesson, selectedMaterials.length]);
-
-  const requireAuth = () => {
-    if (isAuthenticated()) return true;
-
-    messageApi.warning('Davom etish uchun avval tizimga kiring.');
-    navigate(PATH_AUTH.signin, {
-      state: { from: `${location.pathname}${location.search}` },
-    });
-    return false;
-  };
-
-  const getRecommendedLesson = () => {
-    for (const entry of orderedLessons) {
-      const progress = getLessonProgress(
-        progressSnapshot,
-        getLessonItemId(entry.lesson)
-      );
-      if (progress?.status !== 'COMPLETED') {
-        return { topicId: entry.topicId, lesson: entry.lesson, material: null };
-      }
-    }
-
-    return findFirstTopicEntry(learningTopics);
-  };
-
-  const focusLesson = async (
-    topicId: string,
-    lessonId?: string,
-    options?: { triggerProgress?: boolean }
-  ) => {
-    const triggerProgress = options?.triggerProgress ?? false;
-    const topic = topicsRaw.find((item) => item.id === topicId);
-    if (!topic) return;
-
-    const assets = await ensureTopicAssets(topicId);
-    const builtTopic = buildLearningTopics([topic], {
-      [topicId]: assets,
-    })[0];
-    const targetLesson =
-      builtTopic.lessons.find((lesson) => lesson.id === lessonId) ||
-      builtTopic.lessons[0] ||
-      null;
-
-    if (!targetLesson) {
-      setSelectedTopicId(topicId);
-      setSelectedLessonId('');
-      return;
-    }
-
-    setSelectedTopicId(topicId);
-    setSelectedLessonId(targetLesson.id);
-    setOpenedTopicId(topicId);
-    setDrawerOpen(false);
-    if (targetLesson.type === 'VIDEO') {
-      setPreviewTab('video');
-    }
-
-    if (targetLesson.type === 'TEST' && targetLesson.testId) {
-      await loadQuestions(topicId, targetLesson.testId);
-    }
-
-    if (triggerProgress && isAuthenticated() && courseStarted) {
-      try {
-        const snapshot = await openLessonProgress({
-          courseId,
-          moduleId: topicId,
-          lessonItemId: getLessonItemId(targetLesson),
-        });
-        setProgressSnapshot(snapshot);
-      } catch {
-        messageApi.error('Darsni ochishda xatolik yuz berdi.');
-      }
-    }
-  };
-
-  const focusMaterial = async (
-    topicId: string,
-    materialId?: string,
-    options?: { triggerProgress?: boolean }
-  ) => {
-    const triggerProgress = options?.triggerProgress ?? false;
-    const topic = topicsRaw.find((item) => item.id === topicId);
-    if (!topic) return;
-
-    const assets = await ensureTopicAssets(topicId);
-    const builtTopic = buildLearningTopics([topic], {
-      [topicId]: assets,
-    })[0];
-    const targetMaterial =
-      builtTopic.materials.find((item) => item.id === materialId) ||
-      builtTopic.materials[0] ||
-      null;
-
-    setSelectedTopicId(topicId);
-    setSelectedLessonId('');
-    setOpenedTopicId(topicId);
-    setDrawerOpen(false);
-    setPreviewTab('materials');
-
-    if (!targetMaterial) {
-      return;
-    }
-
-    setSelectedMaterialIds((current) => ({
+    setQuestionMap((current) => ({
       ...current,
-      [topicId]: targetMaterial.id,
+      [item.testId!]: {
+        loaded: false,
+        loading: true,
+        questions: [],
+        passScore: DEFAULT_PASS_SCORE,
+      },
     }));
 
-    if (triggerProgress && isAuthenticated() && courseStarted) {
+    try {
+      const payload = await getLearnerTest(item.topicId);
+      setQuestionMap((current) => ({
+        ...current,
+        [item.testId!]: {
+          loaded: true,
+          loading: false,
+          questions: payload?.questions || [],
+          passScore: payload?.passScore || DEFAULT_PASS_SCORE,
+        },
+      }));
+    } catch {
+      messageApi.error(t('course.learn.msg.questionsError'));
+      setQuestionMap((current) => ({
+        ...current,
+        [item.testId!]: {
+          loaded: true,
+          loading: false,
+          questions: [],
+          passScore: DEFAULT_PASS_SCORE,
+        },
+      }));
+    }
+  };
+
+  const openItem = async (item: FlatItem, options?: { skipApi?: boolean }) => {
+    if (statusOf(item.key) === 'LOCKED') {
+      messageApi.info(t('course.learn.msg.sequentialLock'));
+      return;
+    }
+
+    // Kurs hali boshlanmagan bo'lsa, birinchi bosishning o'zi kursni boshlaydi
+    if (!courseStarted) {
+      await handleStart();
+      return;
+    }
+
+    setCurrentKey(item.key);
+    setOpenTopics((current) => ({ ...current, [item.topicId]: true }));
+    setDrawerOpen(false);
+
+    if (item.type === 'TEST') {
+      void ensureQuestions(item);
+    }
+
+    if (!options?.skipApi && courseStarted) {
       try {
-        const snapshot = await openLessonProgress({
+        const nextSnapshot = await openLessonProgress({
           courseId,
-          moduleId: topicId,
-          lessonItemId: targetMaterial.id,
+          moduleId: item.topicId,
+          lessonItemId: item.key,
         });
-        setProgressSnapshot(snapshot);
+        setSnapshot(nextSnapshot);
       } catch {
-        messageApi.error('Materialni ochishda xatolik yuz berdi.');
+        messageApi.error(t('course.learn.msg.openError'));
       }
     }
   };
 
-  const handleStartCourse = async () => {
-    if (!requireAuth()) return;
-
-    const recommended = getRecommendedLesson();
-    if (!recommended) {
-      messageApi.info('Bu kursda hali ko‘rsatiladigan dars mavjud emas.');
+  const handleStart = async () => {
+    const first = items[0];
+    if (!first) {
+      messageApi.info(t('course.learn.msg.noLessons'));
       return;
     }
 
+    setStarting(true);
     try {
-      setStarting(true);
-
-      if (!courseStarted) {
-        const snapshot = await startCourseProgress({
+      let nextSnapshot = await startCourseProgress({
+        courseId,
+        firstModuleId: first.topicId,
+        firstLessonItemId: first.key,
+      });
+      try {
+        nextSnapshot = await openLessonProgress({
           courseId,
-          firstModuleId: recommended.topicId,
-          firstLessonItemId:
-            recommended.lesson?.id ||
-            recommended.material?.id ||
-            '',
+          moduleId: first.topicId,
+          lessonItemId: first.key,
         });
-        setProgressSnapshot(snapshot);
+      } catch {
+        // startCourse muvaffaqiyatli — ochish xatosi jarayonni to'xtatmaydi
       }
-
-      if (recommended.lesson) {
-        await focusLesson(recommended.topicId, recommended.lesson.id, {
-          triggerProgress: true,
-        });
-      } else if (recommended.material) {
-        await focusMaterial(recommended.topicId, recommended.material.id, {
-          triggerProgress: true,
-        });
+      setSnapshot(nextSnapshot);
+      setCurrentKey(first.key);
+      setOpenTopics((current) => ({ ...current, [first.topicId]: true }));
+      if (first.type === 'TEST') {
+        void ensureQuestions(first);
       }
     } catch {
-      messageApi.error('Kursni boshlashda xatolik yuz berdi.');
+      messageApi.error(t('course.learn.msg.startError'));
     } finally {
       setStarting(false);
     }
   };
 
-  const handleCompleteLesson = async () => {
-    if (!selectedLesson || selectedLesson.type === 'TEST') return;
-    if (!requireAuth()) return;
-    if (!courseStarted) {
-      messageApi.info('Avval kursni boshlang, keyin darsni yakunlang.');
+  const goTo = async (item: FlatItem | null) => {
+    if (!item) return;
+    await openItem(item);
+  };
+
+  const celebrateIfJustCompleted = (nextSnapshot: ProgressSnapshot) => {
+    if (
+      snapshot?.course.status !== 'COMPLETED' &&
+      nextSnapshot.course.status === 'COMPLETED'
+    ) {
+      setFinishModalOpen(true);
+    }
+  };
+
+  const handleCompleteCurrent = async () => {
+    if (!currentItem || currentItem.type === 'TEST') return;
+
+    setActionLoading(true);
+    try {
+      const nextSnapshot = await completeLessonProgress({
+        courseId,
+        moduleId: currentItem.topicId,
+        lessonItemId: currentItem.key,
+        lessonType: currentItem.type,
+      });
+      setSnapshot(nextSnapshot);
+      celebrateIfJustCompleted(nextSnapshot);
+      messageApi.success(t('course.learn.msg.lessonDone'));
+    } catch {
+      messageApi.error(t('course.learn.msg.lessonError'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFinishCourse = () => {
+    if (courseCompleted) {
+      setFinishModalOpen(true);
       return;
     }
 
-    try {
-      setActionLoading(true);
-      const snapshot = await completeLessonProgress({
-        courseId,
-        moduleId: selectedTopicId,
-        lessonItemId: getLessonItemId(selectedLesson),
-        lessonType: selectedLesson.type,
-      });
-      setProgressSnapshot(snapshot);
-      messageApi.success('Dars bajarildi deb belgilandi.');
-    } catch {
-      messageApi.error('Darsni yakunlashda xatolik yuz berdi.');
-    } finally {
-      setActionLoading(false);
+    // Hali tugallanmagan majburiy dars/test bor — foydalanuvchini o'sha yerga olib boramiz
+    const pending = items.find(
+      (item) => item.type !== 'DOCUMENT' && statusOf(item.key) !== 'COMPLETED'
+    );
+    messageApi.info(t('course.learn.finish.pending'));
+    if (pending) {
+      void openItem(pending);
     }
   };
 
   const handleSubmitTest = async () => {
-    if (!selectedLesson?.testId) return;
-    if (!requireAuth()) return;
-    if (!courseStarted) {
-      messageApi.info('Testni yuborishdan oldin kursni boshlang.');
-      return;
-    }
+    if (!currentItem?.testId) return;
+    const testAnswers = answers[currentItem.key] || {};
 
+    setActionLoading(true);
     try {
-      setActionLoading(true);
-      const snapshot = await submitTestProgress({
+      const nextSnapshot = await submitTestProgress({
         courseId,
-        moduleId: selectedTopicId,
-        lessonItemId: getLessonItemId(selectedLesson),
-        testId: selectedLesson.testId,
-        answers: currentTestAnswers,
+        moduleId: currentItem.topicId,
+        lessonItemId: currentItem.key,
+        testId: currentItem.testId,
+        answers: testAnswers,
       });
-      setProgressSnapshot(snapshot);
-      const submittedLesson = snapshot.lessons.find(
-        (lesson) => lesson.lessonItemId === getLessonItemId(selectedLesson)
-      );
-      const nextResult = {
-        scorePercent: submittedLesson?.score ?? 0,
-        solvedCount: Object.keys(currentTestAnswers).length,
-        totalQuestions: currentQuestions.length,
-        status: submittedLesson?.status || 'NOT_STARTED',
-      };
-      setTestResults((current) => ({
-        ...current,
-        [selectedLesson.id]: nextResult,
-      }));
-      if (submittedLesson?.status === 'COMPLETED') {
-        messageApi.success('Test muvaffaqiyatli topshirildi.');
+      setSnapshot(nextSnapshot);
+      const status = nextSnapshot.lessons.find(
+        (lesson) => lesson.lessonItemId === currentItem.key
+      )?.status;
+      if (status === 'COMPLETED') {
+        messageApi.success(t('course.learn.msg.testSuccess'));
+        celebrateIfJustCompleted(nextSnapshot);
       } else {
-        messageApi.warning('Natija saqlandi. Testni qayta ishlashingiz mumkin.');
+        messageApi.warning(t('course.learn.msg.testSaved'));
       }
     } catch {
-      messageApi.error('Testni yuborishda xatolik yuz berdi.');
+      messageApi.error(t('course.learn.msg.testError'));
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleTopicToggle = async (topicId: string) => {
-    if (openedTopicId === topicId) {
-      setOpenedTopicId(null);
-      return;
-    }
-
-    setOpenedTopicId(topicId);
-    await ensureTopicAssets(topicId);
-
-    if (selectedTopicId !== topicId) {
-      const topic = learningTopics.find((item) => item.id === topicId);
-      const firstEntry = findFirstTopicEntry(topic ? [topic] : []);
-      if (firstEntry?.lesson) {
-        if (isLessonLocked(firstEntry.lesson.id)) {
-          setSelectedTopicId(topicId);
-          setSelectedLessonId('');
-          return;
-        }
-        await focusLesson(topicId, firstEntry.lesson.id);
-      } else if (firstEntry?.material) {
-        await focusMaterial(topicId, firstEntry.material.id);
-      } else {
-        await focusLesson(topicId);
-      }
-    }
+  const handleRetryTest = () => {
+    if (!currentItem) return;
+    setAnswers((current) => ({ ...current, [currentItem.key]: {} }));
   };
 
-  const handleOpenLesson = async (topicId: string, lessonId: string) => {
-    if (isLessonLocked(lessonId)) {
-      messageApi.info(
-        "Keyingi bosqichni ochish uchun avval oldingi dars yoki mavzu testini yakunlang."
-      );
-      return;
-    }
+  // ---------- Yordamchi render bo'laklari ----------
 
-    await focusLesson(topicId, lessonId, {
-      triggerProgress: true,
-    });
+  const itemTypeLabel = (item: CourseOutlineItem) => {
+    if (item.type === 'VIDEO') return t('course.learn.lesson.video');
+    if (item.type === 'DOCUMENT') return t('course.learn.lesson.material');
+    return item.questionCount
+      ? formatText('course.learn.lesson.testWithCount', { count: item.questionCount })
+      : t('course.learn.lesson.test');
   };
 
-  const jumpToOrderedLesson = async (entry?: OrderedTopicLesson | null) => {
-    if (!entry) return;
-    await focusLesson(entry.topicId, entry.lesson.id, {
-      triggerProgress: courseStarted,
-    });
+  const ItemIcon = ({ type }: { type: CourseOutlineItem['type'] }) => {
+    if (type === 'VIDEO') return <PlayCircleOutlined />;
+    if (type === 'DOCUMENT') return <FileTextOutlined />;
+    return <SafetyCertificateOutlined />;
   };
 
-  const handleRetrySelectedTest = () => {
-    if (!selectedLesson) return;
+  // Oxirgi elementda "Keyingi" o'rniga "Kursni yakunlash" ko'rsatiladi
+  const nextOrFinishButton = nextItem ? (
+    <Button
+      type="primary"
+      size="large"
+      onClick={() => goTo(nextItem)}
+      disabled={!nextAllowed}
+    >
+      {t('course.learn.btn.next')} <RightOutlined />
+    </Button>
+  ) : (
+    <Button
+      type="primary"
+      size="large"
+      icon={<TrophyOutlined />}
+      onClick={handleFinishCourse}
+    >
+      {t('course.learn.btn.finishCourse')}
+    </Button>
+  );
 
-    setTestAnswers((current) => ({
-      ...current,
-      [selectedLesson.id]: {},
-    }));
-    setTestResults((current) => {
-      const next = { ...current };
-      delete next[selectedLesson.id];
-      return next;
-    });
-  };
-
-  const sidebarContent = (
-    <div className="course-learning-sidebar">
-      <div className="course-learning-sidebar-header">
-        <div className="course-syllabus-header">
-          <Text className="course-syllabus-eyebrow">Kurs yo‘li</Text>
-          <Title level={4} style={{ margin: 0, color: '#102a43' }}>
-            Mavzular va bosqichlar
-          </Title>
-          <Text style={{ color: '#52606d' }}>
-            Darslar ketma-ket ochiladi. Mavzu testi bo‘lsa, keyingi mavzuga o‘tishdan oldin uni topshirish majburiy.
-          </Text>
+  const sidebar = (
+    <aside className="learn-sidebar">
+      <div className="learn-sidebar-head">
+        <Text className="learn-sidebar-label">{t('course.learn.content.title')}</Text>
+        <div className="learn-sidebar-progress">
+          <Progress
+            percent={progressPercent}
+            size="small"
+            strokeColor={progressPercent >= 100 ? '#16a34a' : '#2563eb'}
+          />
         </div>
       </div>
 
-      <div className="course-tree-scroll">
-        {learningTopics.map((topic, index) => {
-          const isOpen = openedTopicId === topic.id;
-          const completion = getTopicCompletion(progressSnapshot, topic);
-          const moduleStatus = normalizeStatus(
-            progressSnapshot?.modules.find((module) => module.moduleId === topic.id)?.status
-          );
+      <div className="learn-sidebar-scroll">
+        {outline.map((topic, topicIndex) => {
+          const isOpen = openTopics[topic.id] ?? topicIndex === 0;
+          const doneCount = topic.items.filter(
+            (item) => statusOf(item.key) === 'COMPLETED'
+          ).length;
 
           return (
-            <div className="course-topic-card" key={topic.id}>
+            <section className="learn-topic" key={topic.id}>
               <button
                 type="button"
-                className={`course-topic-trigger ${isOpen ? 'is-open' : ''}`}
-                onClick={() => handleTopicToggle(topic.id)}
+                className={`learn-topic-head ${isOpen ? 'is-open' : ''}`}
+                onClick={() =>
+                  setOpenTopics((current) => ({ ...current, [topic.id]: !isOpen }))
+                }
               >
-                <div className="course-topic-trigger-copy">
-                  <Text className="course-topic-title">
-                    {index + 1}. {topic.title}
-                  </Text>
-                  <div className="course-topic-meta">
-                    <Tag className={`course-topic-status course-topic-status-${moduleStatus.toLowerCase()}`}>
-                      {completion.percent}% tayyor
-                    </Tag>
-                    <span className="course-topic-meta-item">
-                      <BookOutlined /> {topic.lessons.filter((lesson) => lesson.type === 'VIDEO').length} dars
-                    </span>
-                    {topic.lessons.some((lesson) => lesson.type === 'TEST') ? (
-                      <span className="course-topic-meta-item">
-                        <SafetyCertificateOutlined /> {topic.lessons.filter((lesson) => lesson.type === 'TEST').length} test
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <RightOutlined
-                  className={`course-topic-chevron ${isOpen ? 'is-open' : ''}`}
-                />
+                <span className="learn-topic-index">{topicIndex + 1}</span>
+                <span className="learn-topic-copy">
+                  <span className="learn-topic-title">{topic.title}</span>
+                  <span className="learn-topic-meta">
+                    {doneCount}/{topic.items.length} {t('course.learn.overview.lesson')}
+                  </span>
+                </span>
+                <RightOutlined className={`learn-topic-chevron ${isOpen ? 'is-open' : ''}`} />
               </button>
 
               {isOpen ? (
-                <div className="course-topic-lessons">
-                  {topic.lessons.length > 0 ? (
-                    topic.lessons.map((lesson) => {
-                      const lessonState = getSequentialLessonState(lesson);
-                      const isActive = selectedLessonId === lesson.id;
+                <div className="learn-topic-items">
+                  {topic.items.length === 0 ? (
+                    <div className="learn-topic-empty">
+                      {t('course.learn.lesson.empty')}
+                    </div>
+                  ) : (
+                    topic.items.map((item) => {
+                      const status = statusOf(item.key);
+                      const isActive = currentKey === item.key;
+                      const isLocked = status === 'LOCKED';
+
                       return (
                         <button
-                          key={lesson.id}
+                          key={item.key}
                           type="button"
                           className={[
-                            'course-lesson-button',
+                            'learn-item',
                             isActive ? 'is-active' : '',
-                            lessonState === 'completed' ? 'is-completed' : '',
-                            lessonState === 'failed' ? 'is-failed' : '',
-                            lessonState === 'locked' ? 'is-locked' : '',
+                            status === 'COMPLETED' ? 'is-completed' : '',
+                            status === 'FAILED' ? 'is-failed' : '',
+                            isLocked ? 'is-locked' : '',
                           ]
                             .filter(Boolean)
                             .join(' ')}
-                          onClick={() => handleOpenLesson(topic.id, lesson.id)}
+                          onClick={() => {
+                            const flat = items.find((entry) => entry.key === item.key);
+                            if (flat) void openItem(flat);
+                          }}
                         >
-                          <Space align="center" size={12} style={{ minWidth: 0 }}>
-                            <span className="course-lesson-icon">
-                              {lesson.type === 'VIDEO' ? (
-                                <PlayCircleOutlined />
-                              ) : (
-                                <SafetyCertificateOutlined />
-                              )}
+                          <span className="learn-item-icon">
+                            <ItemIcon type={item.type} />
+                          </span>
+                          <span className="learn-item-copy">
+                            <Text
+                              className="learn-item-title"
+                              ellipsis={{ tooltip: item.title }}
+                            >
+                              {item.title}
+                            </Text>
+                            <span className="learn-item-subtitle">
+                              {itemTypeLabel(item)}
                             </span>
-                            <div className="course-lesson-copy">
-                              <Text className="course-lesson-title" ellipsis={{ tooltip: lesson.title }}>
-                                {lesson.title}
-                              </Text>
-                              <Text className="course-lesson-subtitle">
-                                {lesson.type === 'VIDEO'
-                                  ? 'Video dars'
-                                  : lesson.questionCount
-                                    ? `${lesson.questionCount} savolli mavzu testi`
-                                    : 'Mavzu testi'}
-                              </Text>
-                            </div>
-                          </Space>
-                          <LessonStateTag state={lessonState} />
+                          </span>
+                          <span className="learn-item-state">
+                            {status === 'COMPLETED' ? (
+                              <CheckCircleFilled className="learn-state-done" />
+                            ) : status === 'FAILED' ? (
+                              <Tag color="error" className="learn-state-tag">
+                                {t('course.learn.state.retry')}
+                              </Tag>
+                            ) : isLocked ? (
+                              <LockOutlined className="learn-state-lock" />
+                            ) : isActive ? (
+                              <span className="learn-state-current" />
+                            ) : null}
+                          </span>
                         </button>
                       );
                     })
-                  ) : (
-                    <div className="course-topic-empty">
-                      {assetMap[topic.id]?.loading ? (
-                        <div
-                          style={{
-                            minHeight: 120,
-                            display: 'grid',
-                            placeItems: 'center',
-                          }}
-                        >
-                          <Spin />
-                        </div>
-                      ) : (
-                        <Empty
-                          description="Bu mavzu uchun hozircha video yoki test topilmadi"
-                          image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
-                      )}
-                    </div>
                   )}
                 </div>
               ) : null}
-            </div>
+            </section>
           );
         })}
       </div>
-    </div>
+    </aside>
   );
+
+  // ---------- Sahifa holatlari ----------
 
   if (loading) {
     return (
-      <div className="course-learning-page">
+      <div className="learn-page">
         {contextHolder}
-        <Container style={{ padding: '44px 20px 72px' }}>
-          <Card className="course-preview-card">
-            <div style={{ minHeight: 480, display: 'grid', placeItems: 'center' }}>
-              <Spin size="large" />
-            </div>
-          </Card>
-        </Container>
+        <div className="learn-loading">
+          <Spin size="large" />
+        </div>
       </div>
     );
   }
 
+  if (accessDenied) {
+    return (
+      <div className="learn-page">
+        {contextHolder}
+        <div className="learn-center-card">
+          <LockOutlined className="learn-center-icon" />
+          <Title level={3}>{t('course.learn.accessDenied.title')}</Title>
+          <Paragraph type="secondary">
+            {t('course.learn.accessDenied.description')}
+          </Paragraph>
+          <Button
+            type="primary"
+            size="large"
+            onClick={() => navigate(PATH_COURSE.catalog)}
+          >
+            {t('course.learn.accessDenied.btn')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentStatus = currentItem ? statusOf(currentItem.key) : 'NOT_STARTED';
+  const currentQuestionState = currentItem?.testId
+    ? questionMap[currentItem.testId]
+    : undefined;
+  const currentAnswers = currentItem ? answers[currentItem.key] || {} : {};
+  const answeredCount = Object.keys(currentAnswers).length;
+  const totalQuestions = currentQuestionState?.questions.length || 0;
+  const allAnswered = totalQuestions > 0 && answeredCount >= totalQuestions;
+  const currentScore = currentItem ? scoreOf(currentItem.key) : null;
+
   return (
-    <div className="course-learning-page">
+    <div className="learn-page">
       {contextHolder}
       <Helmet>
         <title>
-          {(progressSnapshot?.course.courseTitle || pickCourseTitle(course || undefined))} | Kurs
+          {courseTitleText} | {t('courses.card.tag')}
         </title>
       </Helmet>
 
-      <Container style={{ padding: '34px 20px 72px' }}>
-        <Space direction="vertical" size={20} style={{ width: '100%' }}>
-          <Space
-            wrap
-            style={{
-              justifyContent: 'space-between',
-              width: '100%',
-            }}
+      {/* Yuqori panel */}
+      <header className="learn-topbar">
+        <div className="learn-topbar-inner">
+          <button
+            type="button"
+            className="learn-back"
+            onClick={() => navigate(PATH_COURSE.catalog)}
           >
-            <Space wrap size={10}>
-              <Link to="/">
-                <Text style={{ color: '#64748b' }}>Bosh sahifa</Text>
-              </Link>
-              <Text style={{ color: '#94a3b8' }}>/</Text>
-              <Link to="/courses">
-                <Text style={{ color: '#64748b' }}>Kurslar</Text>
-              </Link>
-              <Text style={{ color: '#94a3b8' }}>/</Text>
-              <Text strong style={{ color: '#102a43' }}>
-                {progressSnapshot?.course.courseTitle || pickCourseTitle(course || undefined)}
-              </Text>
-            </Space>
+            <ArrowLeftOutlined />
+            <span>{t('course.learn.breadcrumb.courses')}</span>
+          </button>
 
+          <span className="learn-topbar-divider" />
+
+          <div className="learn-topbar-title">
+            <Text ellipsis={{ tooltip: courseTitleText }} strong>
+              {courseTitleText}
+            </Text>
+          </div>
+
+          <div className="learn-topbar-right">
+            {courseStarted ? (
+              <div className="learn-topbar-progress">
+                <Progress
+                  type="circle"
+                  percent={progressPercent}
+                  size={38}
+                  strokeColor={progressPercent >= 100 ? '#4ade80' : '#60a5fa'}
+                  trailColor="rgba(255,255,255,0.2)"
+                />
+                {!isMobile ? (
+                  <span className="learn-topbar-progress-label">
+                    {t('course.learn.overview.progress')}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             {isMobile ? (
-              <Button
-                className="course-mobile-tree-button"
-                icon={<MenuOutlined />}
-                size="large"
-                onClick={() => setDrawerOpen(true)}
-                style={{ height: 46, borderRadius: 16 }}
-              >
-                Kurs rejasi
+              <Button ghost icon={<MenuOutlined />} onClick={() => setDrawerOpen(true)}>
+                {t('course.learn.mobile.plan')}
               </Button>
             ) : null}
-          </Space>
+          </div>
+        </div>
+      </header>
 
-          <div className="course-learning-shell">
-            {!isMobile ? sidebarContent : null}
+      <div className="learn-body">
+        <div className="learn-shell">
+          {!isMobile ? sidebar : null}
 
-            <div className="course-preview-shell">
-              <Card className="course-preview-card">
-                <div className="course-learning-overview">
-                  <div className="course-learning-overview-main">
-                    <Space wrap size={8}>
-                      <Tag className="course-catalog-card-tag">{topicsRaw.length} mavzu</Tag>
-                      <Tag className="course-catalog-card-tag">
-                        {learningTopics.reduce(
-                          (count, topic) => count + topic.lessons.length,
-                          0
-                        )}{' '}
-                        dars
-                      </Tag>
-                    </Space>
+          <main className="learn-main">
+            {courseCompleted ? (
+              <div className="learn-done-banner">
+                <TrophyOutlined />
+                <div>
+                  <Text strong>{t('course.learn.done.title')}</Text>
+                  <br />
+                  <Text type="secondary">{t('course.learn.done.description')}</Text>
+                </div>
+              </div>
+            ) : null}
 
-                    <div>
-                      <Title style={{ margin: 0, color: '#102a43' }}>
-                        {progressSnapshot?.course.courseTitle || pickCourseTitle(course || undefined)}
-                      </Title>
-                      <Paragraph
-                        style={{
-                          margin: '10px 0 0',
-                          color: '#52606d',
-                          fontSize: 15,
-                          maxWidth: 760,
-                        }}
-                      >
-                        {pickCourseDescription(course || undefined)}
-                      </Paragraph>
+            {!courseStarted ? (
+              /* --------- Kirish (kurs boshlanmagan) --------- */
+              <div className="learn-intro">
+                <Tag className="learn-intro-tag">{t('courses.card.tag')}</Tag>
+                <Title level={2} style={{ margin: '10px 0 8px' }}>
+                  {courseTitleText}
+                </Title>
+                <Paragraph type="secondary" style={{ maxWidth: 560, margin: '0 auto' }}>
+                  {courseDescriptionText}
+                </Paragraph>
+                <div className="learn-intro-meta">
+                  <span>
+                    <strong>{outline.length}</strong> {t('course.learn.overview.topic')}
+                  </span>
+                  <span className="learn-intro-dot" />
+                  <span>
+                    <strong>{items.length}</strong> {t('course.learn.overview.lesson')}
+                  </span>
+                </div>
+                <Button
+                  type="primary"
+                  size="large"
+                  loading={starting}
+                  onClick={handleStart}
+                  className="learn-intro-start"
+                >
+                  {t('course.learn.overview.start')}
+                </Button>
+                <Paragraph type="secondary" style={{ fontSize: 13, marginTop: 14 }}>
+                  {t('course.learn.sidebar.subtitle')}
+                </Paragraph>
+              </div>
+            ) : currentItem ? (
+              /* --------- Joriy dars paneli --------- */
+              <div className="learn-panel">
+                {currentItem.type === 'VIDEO' ? (
+                  <div className="learn-stage">
+                    <div className="learn-video">
+                      <iframe
+                        src={currentItem.embedUrl}
+                        title={currentItem.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
+                  </div>
+                ) : null}
 
-                    <Space wrap size={16}>
-                      {(progressSnapshot?.course.instructor || course?.instructor) ? (
-                        <Text style={{ color: '#64748b' }}>
-                          <ProfileOutlined /> O‘qituvchi:{' '}
-                          {progressSnapshot?.course.instructor || course?.instructor}
-                        </Text>
-                      ) : null}
-                      <Text style={{ color: '#64748b' }}>
-                        <FolderOpenOutlined /> {topicsRaw.length} modul
+                <div className="learn-panel-body">
+                  <div className="learn-panel-head">
+                    <div className="learn-panel-copy">
+                      <Text className="learn-panel-crumb" type="secondary">
+                        {currentItem.topicIndex + 1}-{t('course.learn.overview.topic')} ·{' '}
+                        {currentItem.topicTitle}
                       </Text>
-                      <Text style={{ color: '#64748b' }}>
-                        <BookOutlined />{' '}
-                        {learningTopics.reduce(
-                          (count, topic) => count + topic.lessons.length,
-                          0
-                        )}{' '}
-                        dars
-                      </Text>
-                    </Space>
+                      <Title level={3} className="learn-panel-title">
+                        {currentItem.title}
+                      </Title>
+                    </div>
+                    <div className="learn-panel-nav">
+                      <Button
+                        icon={<LeftOutlined />}
+                        disabled={!prevItem}
+                        onClick={() => goTo(prevItem)}
+                        title={t('course.learn.btn.prev')}
+                      />
+                      <Button
+                        icon={<RightOutlined />}
+                        disabled={!nextAllowed}
+                        onClick={() => goTo(nextItem)}
+                        title={t('course.learn.btn.next')}
+                      />
+                    </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gap: 14,
-                      width: '100%',
-                    }}
-                  >
-                    <div>
-                      <Text style={{ color: '#64748b' }}>Bajarilgan qism</Text>
-                      <Progress
-                        percent={progressSnapshot?.course.progressPercent || 0}
-                        strokeColor="#2563eb"
-                        showInfo
-                      />
-                    </div>
-                    {accessDenied ? (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        message="Bu kurs sizga hali biriktirilmagan"
-                        description="Kurs ichidagi mavzularni ochish uchun administrator bilan bog‘laning yoki kurslar ro‘yxatiga qayting."
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                  {currentItem.type === 'VIDEO' ? (
+                    <div className="learn-actionbar">
+                      {currentStatus === 'COMPLETED' ? (
+                        <>
+                          <span className="learn-completed-chip">
+                            <CheckCircleFilled /> {t('course.learn.status.completed')}
+                          </span>
+                          {nextOrFinishButton}
+                        </>
+                      ) : (
                         <Button
                           type="primary"
                           size="large"
-                          loading={starting}
-                          onClick={handleStartCourse}
-                          style={{ height: 48, borderRadius: 16, minWidth: 220 }}
+                          icon={<CheckCircleFilled />}
+                          loading={actionLoading}
+                          onClick={handleCompleteCurrent}
                         >
-                          {courseStarted ? 'Davom ettirish' : 'Boshlash'}
+                          {t('course.learn.btn.complete')}
                         </Button>
-                      </div>
-                    )}
-                    {!isAuthenticated() ? (
-                      <Text style={{ color: '#64748b' }}>
-                        Davom etish va natijani saqlash uchun tizimga kirish kerak.
-                      </Text>
-                    ) : null}
-                    {accessDenied ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <Button
-                          size="large"
-                          onClick={() => navigate(PATH_COURSE.catalog)}
-                          style={{ height: 46, borderRadius: 16 }}
-                        >
-                          Kurslar ro‘yxatiga qaytish
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </Card>
-
-              {accessDenied ? (
-                <Card className="course-preview-card">
-                  <Empty
-                    description="Bu kursning ichki mavzulari siz uchun hozircha yopiq"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  />
-                </Card>
-              ) : selectedTopic ? (
-                <>
-                  <Card className="course-preview-card">
-                    <div className="course-stage-nav">
-                      <Button
-                        icon={<LeftOutlined />}
-                        onClick={() => jumpToOrderedLesson(previousLessonEntry)}
-                        disabled={!previousLessonEntry}
-                      >
-                        Oldingi
-                      </Button>
-                      <div className="course-stage-nav-center">
-                        <Text style={{ color: '#64748b' }}>{selectedTopic.title}</Text>
-                        <Text strong style={{ color: '#102a43' }}>
-                          {selectedLesson?.title || 'Mavzu bo‘limi'}
-                        </Text>
-                      </div>
-                      <Button
-                        type="primary"
-                        icon={<RightOutlined />}
-                        onClick={() => jumpToOrderedLesson(nextLessonEntry)}
-                        disabled={!nextLessonEntry || !canAdvanceToNext}
-                      >
-                        Keyingi
-                      </Button>
+                      )}
                     </div>
-                  </Card>
-
-                  <Card className="course-preview-card course-stage-card">
-                    <div className="course-stage-header">
-                      <div className="course-stage-copy">
-                        <Space wrap size={8}>
-                          <Tag className="course-stage-pill">
-                            {selectedLesson?.type === 'TEST' ? (
-                              <>
-                                <SafetyCertificateOutlined /> Mavzu testi
-                              </>
-                            ) : (
-                              <>
-                                <PlayCircleOutlined /> Video dars
-                              </>
-                            )}
-                          </Tag>
-                          <Tag className="course-stage-pill course-stage-pill-muted">
-                            {normalizeLabel(selectedLessonProgress?.status || 'NOT_STARTED')}
-                          </Tag>
-                          {selectedLesson?.type === 'TEST' ? (
-                            <Tag className="course-stage-pill course-stage-pill-muted">
-                              {currentQuestions.length} savol
-                            </Tag>
-                          ) : null}
-                        </Space>
-
-                        <Title level={2} style={{ margin: 0, color: '#102a43' }}>
-                          {selectedLesson?.title || selectedTopic.title}
-                        </Title>
-
-                        <Paragraph className="course-stage-description">
-                          {selectedLesson?.type === 'TEST'
-                            ? 'Barcha savollarga javob berib, yakunda natijani bir martada yuboring. Testdan o‘tish keyingi mavzuni ochadi.'
-                            : 'Darsni ko‘rib chiqing. Kerak bo‘lsa pastdagi materiallar orqali qo‘shimcha fayllarni ham ko‘rishingiz mumkin.'}
-                        </Paragraph>
-                      </div>
-
-                      {selectedLesson?.type === 'VIDEO' ? (
-                        <div className="course-stage-actions">
+                  ) : currentItem.type === 'DOCUMENT' ? (
+                    <>
+                      {getFilePreviewKind(currentItem.fileName) === 'pdf' ? (
+                        <div className="learn-doc">
+                          <iframe src={currentItem.fileUrl} title={currentItem.title} />
+                        </div>
+                      ) : getFilePreviewKind(currentItem.fileName) === 'image' ? (
+                        <div className="learn-doc learn-doc-image">
+                          <img src={currentItem.fileUrl} alt={currentItem.title} />
+                        </div>
+                      ) : (
+                        /* Office fayllar brauzerda ochilmaydi — yuklab olish kartasi */
+                        <div className="learn-file-card">
+                          <span className="learn-file-icon">
+                            <FileTextOutlined />
+                          </span>
+                          <Text strong className="learn-file-name">
+                            {currentItem.fileName}
+                          </Text>
+                          <Text type="secondary" className="learn-file-note">
+                            {t('course.learn.material.noPreview')}
+                          </Text>
                           <Button
                             type="primary"
-                            icon={<CheckCircleFilled />}
-                            loading={actionLoading}
-                            onClick={handleCompleteLesson}
-                            style={{ borderRadius: 14 }}
+                            size="large"
+                            href={currentItem.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            icon={<DownloadOutlined />}
                           >
-                            Dars yakunlandi
+                            {t('course.learn.material.download')}
                           </Button>
-                          {canAdvanceToNext && nextLessonEntry ? (
+                        </div>
+                      )}
+                      <div className="learn-actionbar">
+                        <Space size={10} wrap>
+                          <span className="learn-completed-chip">
+                            <CheckCircleFilled /> {t('course.learn.material.read')}
+                          </span>
+                          {getFilePreviewKind(currentItem.fileName) !== 'other' ? (
                             <Button
-                              icon={<RightOutlined />}
-                              onClick={() => jumpToOrderedLesson(nextLessonEntry)}
-                              style={{ borderRadius: 14 }}
+                              href={currentItem.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<DownloadOutlined />}
                             >
-                              Keyingi bosqich
+                              {t('course.learn.material.download')}
                             </Button>
                           ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    {selectedLesson?.type === 'TEST' ? (
-                      <Space direction="vertical" size={18} style={{ width: '100%' }}>
-                        <Alert
-                          type="info"
-                          showIcon
-                          message={`Testni yakunlash uchun kamida ${currentPassScore}% natija talab qilinadi.`}
-                          description="Barcha savollarga javob bering va yakunda bitta tugma orqali natijani yuboring."
-                        />
-
-                        {questionMap[selectedLesson.testId || '']?.loading ? (
-                          <div
-                            style={{
-                              minHeight: 240,
-                              display: 'grid',
-                              placeItems: 'center',
-                            }}
-                          >
-                            <Spin />
+                        </Space>
+                        {nextOrFinishButton}
+                      </div>
+                    </>
+                  ) : (
+                  /* --------- Test --------- */
+                  <div className="learn-test">
+                    {currentQuestionState?.loading ? (
+                      <div className="learn-test-loading">
+                        <Spin />
+                      </div>
+                    ) : currentStatus === 'COMPLETED' ? (
+                      <div className="learn-test-result is-pass">
+                        <CheckCircleFilled className="learn-test-result-icon" />
+                        <Title level={3} style={{ margin: '10px 0 4px' }}>
+                          {currentScore != null ? `${currentScore}%` : ''}
+                        </Title>
+                        <Text strong>{t('course.learn.test.result.pass')}</Text>
+                        <Paragraph type="secondary" style={{ margin: '8px 0 20px' }}>
+                          {t('course.learn.test.resultSuccessDescription')}
+                        </Paragraph>
+                        {nextOrFinishButton}
+                      </div>
+                    ) : (
+                      <>
+                        {currentStatus === 'FAILED' ? (
+                          <div className="learn-test-result is-fail">
+                            <Text strong>
+                              {t('course.learn.test.result.title')}:{' '}
+                              {currentScore != null ? `${currentScore}%` : '-'}
+                            </Text>
+                            <Text type="secondary">
+                              {formatText('course.learn.test.minimumScore', {
+                                score: currentQuestionState?.passScore || DEFAULT_PASS_SCORE,
+                              })}
+                            </Text>
+                            <Button size="small" onClick={handleRetryTest}>
+                              {t('course.learn.btn.retryTest')}
+                            </Button>
                           </div>
-                        ) : currentQuestions.length > 0 ? (
-                          <div className="course-test-grid">
-                            {currentQuestions.map((question, questionIndex) => (
-                              <Card
-                                key={`${selectedLesson.id}-${questionIndex}`}
-                                className="course-test-question-card"
-                              >
-                                <Space
-                                  direction="vertical"
-                                  size={16}
-                                  style={{ width: '100%' }}
-                                >
-                                  <div>
-                                    <Text className="course-test-question-label">
-                                      Savol {questionIndex + 1}
-                                    </Text>
-                                    <Title level={4} className="course-test-question-title">
+                        ) : (
+                          <Text type="secondary" className="learn-test-hint">
+                            {formatText('course.learn.test.minimumScore', {
+                              score: currentQuestionState?.passScore || DEFAULT_PASS_SCORE,
+                            })}
+                          </Text>
+                        )}
+
+                        {currentQuestionState?.questions.length ? (
+                          <div className="learn-test-questions">
+                            {currentQuestionState.questions.map((question, questionIndex) => {
+                              const answerKey = question.id || String(questionIndex);
+                              return (
+                                <div className="learn-question" key={answerKey}>
+                                  <div className="learn-question-head">
+                                    <span className="learn-question-number">
+                                      {questionIndex + 1}
+                                    </span>
+                                    <Text strong className="learn-question-text">
                                       {question.text}
-                                    </Title>
+                                    </Text>
                                   </div>
                                   <Radio.Group
-                                    value={
-                                      currentTestAnswers[question.id || String(questionIndex)]
-                                    }
+                                    value={currentAnswers[answerKey]}
                                     onChange={(event) =>
-                                      setTestAnswers((current) => ({
+                                      setAnswers((current) => ({
                                         ...current,
-                                        [selectedLesson.id]: {
-                                          ...(current[selectedLesson.id] || {}),
-                                          [question.id || String(questionIndex)]:
-                                            event.target.value,
+                                        [currentItem.key]: {
+                                          ...(current[currentItem.key] || {}),
+                                          [answerKey]: event.target.value,
                                         },
                                       }))
                                     }
                                     style={{ width: '100%' }}
                                   >
-                                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                    <Space
+                                      direction="vertical"
+                                      size={10}
+                                      style={{ width: '100%' }}
+                                    >
                                       {question.answers.map((answer, answerIndex) => (
                                         <label
-                                          key={`${selectedLesson.id}-${questionIndex}-${answerIndex}`}
-                                          className="course-test-option"
+                                          key={`${answerKey}-${answerIndex}`}
+                                          className={`course-test-option ${
+                                            currentAnswers[answerKey] === answerIndex
+                                              ? 'is-selected'
+                                              : ''
+                                          }`}
                                         >
                                           <Radio value={answerIndex}>{answer}</Radio>
                                         </label>
                                       ))}
                                     </Space>
                                   </Radio.Group>
-                                </Space>
-                              </Card>
-                            ))}
+                                </div>
+                              );
+                            })}
+
+                            <div className="learn-test-submit">
+                              <Text type="secondary">
+                                {formatText('course.learn.test.answeredCount', {
+                                  answered: answeredCount,
+                                  total: totalQuestions,
+                                })}
+                                {!allAnswered
+                                  ? ` · ${t('course.learn.test.answerAll')}`
+                                  : ''}
+                              </Text>
+                              <Button
+                                type="primary"
+                                size="large"
+                                loading={actionLoading}
+                                disabled={!allAnswered}
+                                onClick={handleSubmitTest}
+                              >
+                                {t('course.learn.btn.submitTest')}
+                              </Button>
+                            </div>
                           </div>
-                        ) : (
+                        ) : currentQuestionState?.loaded ? (
                           <Empty
-                            description="Bu test uchun savollar topilmadi"
+                            description={t('course.learn.test.empty')}
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
                           />
-                        )}
-
-                        <div className="course-test-submitbar">
-                          <div className="course-test-submitbar-copy">
-                            <Text strong style={{ color: '#102a43' }}>
-                              {Object.keys(currentTestAnswers).length}/{currentQuestions.length} savolga javob berildi
-                            </Text>
-                            <Text style={{ color: '#64748b' }}>
-                              Natijani ko‘rish uchun testni yakunda yuboring.
-                            </Text>
-                          </div>
-                          <Space wrap>
-                            {currentTestResult?.status === 'FAILED' ? (
-                              <Button onClick={handleRetrySelectedTest} style={{ borderRadius: 14 }}>
-                                Qayta ishlash
-                              </Button>
-                            ) : null}
-                            <Button
-                              type="primary"
-                              size="large"
-                              icon={<SafetyCertificateOutlined />}
-                              loading={actionLoading}
-                              onClick={handleSubmitTest}
-                              style={{ borderRadius: 16, height: 48 }}
-                            >
-                              Testni yakunlash
-                            </Button>
-                            {currentTestResult?.status === 'COMPLETED' && nextLessonEntry ? (
-                              <Button
-                                icon={<RightOutlined />}
-                                onClick={() => jumpToOrderedLesson(nextLessonEntry)}
-                                style={{ borderRadius: 14 }}
-                              >
-                                Keyingi mavzu
-                              </Button>
-                            ) : null}
-                          </Space>
-                        </div>
-
-                        {currentTestResult ? (
-                          <Alert
-                            type={
-                              currentTestResult.status === 'COMPLETED'
-                                ? 'success'
-                                : 'warning'
-                            }
-                            showIcon
-                            message={`Natija: ${currentTestResult.scorePercent}%`}
-                            description={
-                              currentTestResult.status === 'COMPLETED'
-                                ? 'Testdan muvaffaqiyatli o‘tdingiz. Endi keyingi bosqichni ochishingiz mumkin.'
-                                : 'Test natijasi saqlandi. Istasangiz testni qaytadan ishlab ko‘rishingiz mumkin.'
-                            }
-                          />
                         ) : null}
-                      </Space>
-                    ) : (
-                      <Space direction="vertical" size={18} style={{ width: '100%' }}>
-                        <Tabs
-                          activeKey={previewTab}
-                          onChange={(activeKey) =>
-                            setPreviewTab(activeKey as 'video' | 'materials')
-                          }
-                          className="course-content-tabs"
-                          items={[
-                            {
-                              key: 'video',
-                              disabled: !selectedLesson || selectedLesson.type !== 'VIDEO',
-                              label: (
-                                <span className="course-tab-label">
-                                  <PlayCircleOutlined />
-                                  Dars
-                                </span>
-                              ),
-                              children: selectedLesson?.type === 'VIDEO' ? (
-                                <div className="course-video-panel">
-                                  <iframe
-                                    className="course-video-frame"
-                                    src={resolveVideoEmbedUrl(selectedLesson.externalUrl)}
-                                    title={selectedLesson.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  />
-                                </div>
-                              ) : (
-                                <Empty
-                                  description="Video ko‘rish uchun dars tanlang"
-                                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                />
-                              ),
-                            },
-                            {
-                              key: 'materials',
-                              disabled: selectedMaterials.length === 0,
-                              label: (
-                                <span className="course-tab-label">
-                                  <FileTextOutlined />
-                                  Materiallar
-                                </span>
-                              ),
-                              children: selectedMaterials.length > 0 ? (
-                                <MaterialPreviewPanel
-                                  materials={selectedMaterials}
-                                  selectedMaterialId={selectedMaterial?.id}
-                                  onSelect={(materialId) =>
-                                    focusMaterial(selectedTopic.id, materialId, {
-                                      triggerProgress: true,
-                                    })
-                                  }
-                                />
-                              ) : (
-                                <Empty
-                                  description="Bu mavzu uchun materiallar topilmadi"
-                                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                />
-                              ),
-                            },
-                          ]}
-                        />
-
-                        {selectedMaterials.length > 0 ? (
-                          <div className="course-material-helper">
-                            <FileTextOutlined />
-                            <span>
-                              Qo‘shimcha fayllar shu mavzu ichida yordamchi material sifatida berilgan. Ularni xohlagan payt ko‘rib chiqishingiz mumkin.
-                            </span>
-                          </div>
-                        ) : null}
-                      </Space>
+                      </>
                     )}
-                  </Card>
-                </>
-              ) : (
-                <Card className="course-preview-card">
+                  </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="learn-panel">
+                <div className="learn-panel-body">
                   <Empty
-                    description="Ko‘rish uchun mavzu ichidan bo‘lim tanlang"
+                    description={t('course.learn.empty.selectSection')}
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                   />
-                </Card>
-              )}
-
-            </div>
-          </div>
-        </Space>
-      </Container>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
 
       <Drawer
         open={drawerOpen}
         placement="left"
-        width="min(400px, calc(100vw - 18px))"
-        title="Kurs rejasi"
+        width="min(380px, calc(100vw - 24px))"
+        title={t('course.learn.content.title')}
         onClose={() => setDrawerOpen(false)}
-        styles={{ body: { padding: 0, background: '#f8fbff' } }}
+        styles={{ body: { padding: 0 } }}
       >
-        {sidebarContent}
+        {sidebar}
       </Drawer>
-    </div>
-  );
-};
 
-const LessonStateTag = ({
-  state,
-}: {
-  state: 'available' | 'active' | 'completed' | 'failed' | 'locked';
-}) => {
-  if (state === 'completed') {
-    return <CheckCircleFilled style={{ color: '#86efac' }} />;
-  }
-
-  if (state === 'locked') {
-    return <LockOutlined style={{ color: 'rgba(255,255,255,0.55)' }} />;
-  }
-
-  if (state === 'failed') {
-    return (
-      <Tag color="error" style={{ margin: 0, borderRadius: 999 }}>
-        Qayta
-      </Tag>
-    );
-  }
-
-  if (state === 'active') {
-    return (
-      <Tag color="processing" style={{ margin: 0, borderRadius: 999 }}>
-        Hozir
-      </Tag>
-    );
-  }
-
-  return (
-    <Tag
-      style={{
-        margin: 0,
-        borderRadius: 999,
-        background: '#f8fafc',
-        color: '#475569',
-        border: '1px solid rgba(148,163,184,0.16)',
-      }}
-    >
-      Ko‘rish
-    </Tag>
-  );
-};
-
-const MaterialPreviewPanel = ({
-  materials,
-  selectedMaterialId,
-  onSelect,
-}: {
-  materials: LearningMaterial[];
-  selectedMaterialId?: string | null;
-  onSelect: (materialId: string) => void;
-}) => {
-  const activeMaterial =
-    materials.find((material) => material.id === selectedMaterialId) || materials[0];
-
-  return (
-    <div className="course-material-layout">
-      <div className="course-material-list">
-        {materials.map((material) => {
-          const isActive = material.id === activeMaterial?.id;
-          return (
-            <button
-              key={material.id}
-              type="button"
-              className={`course-material-item ${isActive ? 'is-active' : ''}`}
-              onClick={() => onSelect(material.id)}
-            >
-              <div className="course-material-item-icon">
-                <FileTextOutlined />
-              </div>
-              <div className="course-material-item-copy">
-                <Text strong style={{ color: '#102a43' }}>
-                  {material.title}
-                </Text>
-                <Text style={{ color: '#64748b' }} ellipsis={{ tooltip: material.fileName }}>
-                  {material.fileName}
-                </Text>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="course-material-preview">
-        <div className="course-material-preview-header">
-          <div>
-            <Text style={{ color: '#64748b' }}>Materialni ko‘rish</Text>
-            <Title level={4} style={{ margin: '4px 0 0', color: '#102a43' }}>
-              {activeMaterial?.title || 'Material'}
-            </Title>
-          </div>
-          {activeMaterial ? (
+      {/* Kurs yakunlanganda tabrik oynasi */}
+      <Modal
+        open={finishModalOpen}
+        footer={null}
+        centered
+        width={440}
+        onCancel={() => setFinishModalOpen(false)}
+      >
+        <div className="learn-finish-modal">
+          <span className="learn-finish-trophy">
+            <TrophyOutlined />
+          </span>
+          <Title level={3} style={{ margin: '14px 0 6px' }}>
+            {t('course.learn.done.title')}
+          </Title>
+          <Paragraph type="secondary" style={{ marginBottom: 22 }}>
+            {t('course.learn.done.description')}
+          </Paragraph>
+          <Space wrap style={{ justifyContent: 'center' }}>
             <Button
-              href={activeMaterial.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              icon={<DownloadOutlined />}
-              style={{ borderRadius: 14 }}
+              type="primary"
+              size="large"
+              onClick={() => navigate(PATH_USER_PROFILE.myLearning)}
             >
-              Yuklab olish
+              {t('course.learn.finish.myLearning')}
             </Button>
-          ) : null}
+            <Button size="large" onClick={() => navigate(PATH_COURSE.catalog)}>
+              {t('course.learn.accessDenied.btn')}
+            </Button>
+          </Space>
         </div>
-
-        {activeMaterial ? (
-          <iframe
-            className="course-document-frame"
-            src={activeMaterial.previewUrl}
-            title={activeMaterial.title}
-          />
-        ) : (
-          <Empty
-            description="Material tanlang"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        )}
-      </div>
+      </Modal>
     </div>
   );
-};
-
-const normalizeLabel = (status: string) => {
-  if (status === 'IN_PROGRESS') return 'Jarayonda';
-  if (status === 'COMPLETED') return 'Yakunlangan';
-  if (status === 'FAILED') return 'Qayta topshirish';
-  if (status === 'LOCKED') return 'Yopiq';
-  return 'Boshlanmagan';
 };

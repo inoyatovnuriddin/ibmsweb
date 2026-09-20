@@ -57,37 +57,37 @@ const USER_PROFILE_ITEMS = [
     label: 'Afzalliklar',
     title: 'preferences',
     path: PATH_USER_PROFILE.preferences,
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Shaxsiy ma’lumot',
     title: 'information',
     path: PATH_USER_PROFILE.personalInformation,
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Faoliyat',
     title: 'activity',
     path: PATH_USER_PROFILE.activity,
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Harakatlar',
     title: 'actions',
     path: PATH_USER_PROFILE.action,
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Yordam',
     title: 'help',
     path: PATH_USER_PROFILE.help,
-    disabled: true,
+    disabled: false,
   },
   {
     label: 'Fikr-mulohaza',
     title: 'feedback',
     path: PATH_USER_PROFILE.feedback,
-    disabled: true,
+    disabled: false,
   },
 ];
 

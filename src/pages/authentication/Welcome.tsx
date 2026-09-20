@@ -3,9 +3,11 @@ import { Button, Flex, Typography } from 'antd';
 import { Logo } from '../../components';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATH_LANDING } from '../../constants';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 export const WelcomePage = () => {
   const navigate = useNavigate();
+  const { t } = useAppTranslation();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -28,19 +30,18 @@ export const WelcomePage = () => {
 
       {/* Title */}
       <Typography.Title className="m-0" level={2}>
-        Рўйхатдан ўтганингиз учун раҳмат!
+        {t('auth.welcome.title')}
       </Typography.Title>
 
       {/* Description */}
       <Typography.Text style={{ fontSize: 18 }}>
-        Сизнинг аккаунтингиз муваффақиятли яратилди. Илтимос, админлар
-        тасдиқлашини кутинг. Бир неча сониядан сўнг бош саҳифага йўналтирасиз.
+        {t('auth.welcome.description')}
       </Typography.Text>
 
       {/* Manual link */}
       <Link to={PATH_LANDING.root}>
         <Button type="primary" size="middle">
-          Бош саҳифага ўтиш
+          {t('auth.welcome.home')}
         </Button>
       </Link>
     </Flex>

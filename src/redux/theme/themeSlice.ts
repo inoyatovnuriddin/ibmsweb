@@ -1,11 +1,26 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 export interface ThemeState {
-  mytheme: string;
+  mytheme: 'light' | 'dark';
 }
 
+const getInitialTheme = (): ThemeState['mytheme'] => {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  const storedTheme = window.localStorage.getItem('ibms-theme');
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme;
+  }
+
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    ? 'dark'
+    : 'light';
+};
+
 const initialState: ThemeState = {
-  mytheme: 'light',
+  mytheme: getInitialTheme(),
 };
 
 const themeSlice = createSlice({
@@ -15,9 +30,12 @@ const themeSlice = createSlice({
     toggleTheme: (state: ThemeState) => {
       state.mytheme = state.mytheme === 'light' ? 'dark' : 'light';
     },
+    setTheme: (state: ThemeState, action: { payload: ThemeState['mytheme'] }) => {
+      state.mytheme = action.payload;
+    },
   },
 });
 
-export const { toggleTheme } = themeSlice.actions;
+export const { toggleTheme, setTheme } = themeSlice.actions;
 
 export default themeSlice.reducer;

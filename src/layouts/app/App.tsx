@@ -12,6 +12,7 @@ import {
   Space,
   Switch,
   Tag,
+  theme,
   Typography,
 } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -39,6 +40,7 @@ import { NProgress } from '../../components';
 import { PATH_LANDING } from '../../constants';
 import { toggleTheme } from '../../redux/theme/themeSlice.ts';
 import { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Content, Header } = Layout;
 const { Text, Title } = Typography;
@@ -46,17 +48,6 @@ const { useBreakpoint } = Grid;
 
 type AppLayoutProps = {
   children: ReactNode;
-};
-
-const resolveSectionLabel = (pathname: string) => {
-  if (pathname.includes('/dashboards/courses')) return 'Kurslar';
-  if (pathname.includes('/dashboards/topics')) return 'Mavzular';
-  if (pathname.includes('/dashboards/videos')) return 'Videolar';
-  if (pathname.includes('/dashboards/tests')) return 'Testlar';
-  if (pathname.includes('/dashboards/users')) return 'Foydalanuvchilar';
-  if (pathname.includes('/groups')) return 'Guruhlar';
-  if (pathname.includes('/dashboards/qrCode')) return 'QR-kod';
-  return 'Admin panel';
 };
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
@@ -70,22 +61,35 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const nodeRef = useRef(null);
   const dispatch = useDispatch();
   const { mytheme } = useSelector((state: RootState) => state.theme);
+  const currentUser = useSelector((state: RootState) => state.auth.currentUser);
+  const { language, t } = useAppTranslation();
+  const { token } = theme.useToken();
   const asideWidth = isDesktop ? (collapsed ? 92 : 248) : 0;
   const currentSection = useMemo(
-    () => resolveSectionLabel(location.pathname),
-    [location.pathname]
+    () => {
+      if (location.pathname.includes('/dashboards/courses')) return t('dashboard.courses');
+      if (location.pathname.includes('/dashboards/topics')) return t('dashboard.topics');
+      if (location.pathname.includes('/dashboards/videos')) return t('dashboard.videos');
+      if (location.pathname.includes('/dashboards/tests')) return t('dashboard.tests');
+      if (location.pathname.includes('/dashboards/users')) return t('dashboard.users');
+      if (location.pathname.includes('/dashboards/qrCode')) return t('dashboard.qrCode');
+      if (location.pathname.includes('/dashboards/contact-requests')) return t('dashboard.contactRequests');
+      if (location.pathname.includes('/groups')) return t('dashboard.groups');
+      return t('dashboard.panel');
+    },
+    [location.pathname, t]
   );
 
   const items: MenuProps['items'] = [
     {
       key: 'user-profile-link',
-      label: 'Profil',
+      label: t('dashboard.profile'),
       icon: <UserOutlined />,
       onClick: () => navigate('/user-profile/details'),
     },
     {
       key: 'user-settings-link',
-      label: 'Sozlamalar',
+      label: t('dashboard.settings'),
       icon: <SettingOutlined />,
       onClick: () => navigate('/user-profile/security'),
     },
@@ -94,13 +98,13 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     },
     {
       key: 'user-logout-link',
-      label: 'Chiqish',
+      label: t('dashboard.logout'),
       icon: <LogoutOutlined />,
       danger: true,
       onClick: () => {
         message.open({
           type: 'loading',
-          content: 'Hisobdan chiqilmoqda',
+          content: t('app.logout.loading'),
         });
         localStorage.clear();
         setTimeout(() => {
@@ -136,8 +140,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       <Layout
         style={{
           minHeight: '100vh',
-          background:
-            'radial-gradient(circle at top left, rgba(59,130,246,0.06), transparent 18%), linear-gradient(180deg, #fffdf8 0%, #f8fafc 100%)',
+          background: token.colorBgLayout,
         }}
       >
         {isDesktop ? (
@@ -168,7 +171,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             onClose={() => setMobileNavOpen(false)}
             width={320}
             closable={false}
-            bodyStyle={{ padding: 16, background: '#f8fafc' }}
+            bodyStyle={{ padding: 16, background: token.colorBgContainer }}
           >
             <AdminSideNavContent />
           </Drawer>
@@ -200,9 +203,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 gap: 18,
                 padding: isDesktop ? '14px 18px' : '14px 14px',
                 borderRadius: 20,
-                background: 'rgba(255,255,255,0.88)',
-                border: '1px solid rgba(148,163,184,0.12)',
-                boxShadow: '0 10px 30px rgba(15,23,42,0.05)',
+                background: 'var(--header-shell-bg)',
+                border: `1px solid ${token.colorBorderSecondary}`,
+                boxShadow: 'var(--color-shadow-soft)',
                 backdropFilter: 'blur(10px)',
                 flexWrap: 'wrap',
               }}
@@ -225,20 +228,20 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                     width: 42,
                     height: 42,
                     borderRadius: 12,
-                    background: '#f8fafc',
-                    border: '1px solid rgba(148,163,184,0.14)',
+                    background: token.colorBgContainer,
+                    border: `1px solid ${token.colorBorderSecondary}`,
                     flexShrink: 0,
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <Text style={{ color: '#64748b', fontSize: 13 }}>
-                    Boshqaruv paneli
+                  <Text style={{ color: token.colorTextSecondary, fontSize: 13 }}>
+                    {t('dashboard.panel')}
                   </Text>
                   <Title
                     level={4}
                     style={{
                       margin: '2px 0 0',
-                      color: '#102a43',
+                      color: token.colorText,
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -253,12 +256,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                       margin: 0,
                       borderRadius: 999,
                       padding: '6px 12px',
-                      background: '#eef4ff',
-                      color: '#1d4ed8',
-                      border: '1px solid rgba(29,78,216,0.12)',
+                      background: mytheme === 'dark'
+                        ? 'var(--color-fill-hover)'
+                        : '#eef4ff',
+                      color: mytheme === 'dark' ? '#93c5fd' : '#1d4ed8',
+                      border: '1px solid rgba(29,78,216,0.18)',
                     }}
-                  >
-                    Admin
+                    >
+                    {t('dashboard.admin')}
                   </Tag>
                 ) : null}
               </div>
@@ -275,7 +280,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
               >
                 <Input
                   prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                  placeholder="Qidiruv"
+                  placeholder={t('app.search')}
                   style={{
                     width: isDesktop ? 240 : '100%',
                     maxWidth: '100%',
@@ -293,9 +298,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                   }}
                 />
                 <Switch
-                  checkedChildren={<MoonOutlined />}
-                  unCheckedChildren={<SunOutlined />}
-                  checked={mytheme === 'light'}
+                  checkedChildren={<SunOutlined />}
+                  unCheckedChildren={<MoonOutlined />}
+                  checked={mytheme === 'dark'}
                   onClick={() => dispatch(toggleTheme())}
                 />
                 <Dropdown menu={{ items }} trigger={['click']}>
@@ -308,13 +313,20 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                     }}
                   >
                     <Space size={10}>
-                      <Avatar src="/me.jpg" size={38} icon={<UserOutlined />} />
+                      <Avatar
+                        src={currentUser?.userImage || undefined}
+                        size={38}
+                        icon={<UserOutlined />}
+                      />
                       <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
-                        <Text style={{ display: 'block', color: '#102a43' }}>
-                          Administrator
+                        <Text style={{ display: 'block', color: token.colorText }}>
+                          {currentUser
+                            ? `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
+                              t('dashboard.admin')
+                            : t('dashboard.admin')}
                         </Text>
-                        <Text style={{ color: '#64748b', fontSize: 12 }}>
-                          Boshqaruv paneli
+                        <Text style={{ color: token.colorTextSecondary, fontSize: 12 }}>
+                          {t('dashboard.panel')}
                         </Text>
                       </div>
                     </Space>
@@ -333,7 +345,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
             <TransitionGroup>
               <SwitchTransition>
                 <CSSTransition
-                  key={`css-transition-${location.key}`}
+                  key={`css-transition-${location.key}-${language}`}
                   nodeRef={nodeRef}
                   onEnter={() => setIsLoading(true)}
                   onEntered={() => setIsLoading(false)}

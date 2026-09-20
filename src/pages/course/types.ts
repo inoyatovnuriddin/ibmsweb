@@ -9,11 +9,17 @@ export type LessonType = 'VIDEO' | 'DOCUMENT' | 'TEST';
 
 export type CourseRecord = {
   id: string;
+  title?: string;
   titleuz?: string;
   titleru?: string;
+  description?: string;
   descriptionuz?: string;
   descriptionru?: string;
   instructor?: string;
+  moduleCount?: number | null;
+  videoCount?: number | null;
+  materialCount?: number | null;
+  testCount?: number | null;
 };
 
 export type CourseTopicRecord = {
@@ -71,6 +77,9 @@ export type CourseProgressDto = {
   progressPercent: number;
   startedAt: string | null;
   completedAt: string | null;
+  lastActivityAt?: string | null;
+  completedLessonCount?: number | null;
+  totalLessonCount?: number | null;
 };
 
 export type MyCoursesProgressResponse = {
@@ -132,6 +141,37 @@ export type CourseCatalogItem = {
   description: string;
   instructor: string;
   metrics: CourseCatalogMetrics;
+};
+
+export type CourseAccessGroupSummary = {
+  id: string;
+  name: string;
+  description?: string | null;
+  active: boolean;
+  studentCount: number;
+  courseCount: number;
+  createdAt?: string | null;
+};
+
+export type CourseAccessCourseSummary = {
+  courseId: string;
+  courseTitle: string;
+  instructor?: string | null;
+};
+
+export type CourseAccessOverrideSummary = {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  instructor?: string | null;
+  accessMode: 'ALLOW' | 'DENY';
+};
+
+export type MyEffectiveCourseAccessResponse = {
+  userId: string;
+  groups: CourseAccessGroupSummary[];
+  effectiveCourses: CourseAccessCourseSummary[];
+  overrides: CourseAccessOverrideSummary[];
 };
 
 export type StartCoursePayload = {
