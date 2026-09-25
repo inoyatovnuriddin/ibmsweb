@@ -45,6 +45,7 @@ import type {
   StudentGroupItem,
 } from './groupTypes.ts';
 import { PATH_DASHBOARD } from '../../constants';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Text, Paragraph } = Typography;
 
@@ -76,6 +77,7 @@ const formatDate = (value: string) => {
 };
 
 export const DashboardGroupsPage = () => {
+  const { t } = useAppTranslation();
   const { token } = theme.useToken();
   const navigate = useNavigate();
   const [form] = Form.useForm<GroupFormValues>();
@@ -181,10 +183,10 @@ export const DashboardGroupsPage = () => {
       setSubmitting(true);
       if (editingGroup) {
         await updateGroup(editingGroup.id, payload);
-        message.success('Guruh ma’lumotlari yangilandi.');
+        message.success(t('admin.groups.updated'));
       } else {
         await createGroup(payload);
-        message.success('Yangi guruh yaratildi.');
+        message.success(t('admin.groups.created'));
       }
       closeModal();
       await fetchGroups(
@@ -225,7 +227,7 @@ export const DashboardGroupsPage = () => {
   const handleDeleteGroup = async (groupId: string) => {
     try {
       await deleteGroup(groupId);
-      message.success('Guruh o‘chirildi.');
+      message.success(t('admin.groups.deleted'));
       await fetchGroups(
         pagination.current || 1,
         pagination.pageSize || 10,
@@ -240,7 +242,7 @@ export const DashboardGroupsPage = () => {
 
   const columns: ColumnsType<StudentGroupItem> = [
     {
-      title: 'Guruh',
+      title: t('admin.groups.colGroup'),
       key: 'group',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -248,42 +250,42 @@ export const DashboardGroupsPage = () => {
             {record.name}
           </Text>
           <Text style={{ color: token.colorTextSecondary }}>
-            {record.description || 'Tavsif kiritilmagan'}
+            {record.description || t('admin.common.noDesc')}
           </Text>
         </Space>
       ),
     },
     {
-      title: 'Holat',
+      title: t('admin.common.status'),
       dataIndex: 'active',
       width: 140,
       render: (active: boolean) => (
         <Badge
           status={active ? 'success' : 'default'}
-          text={active ? 'Faol' : 'Nofaol'}
+          text={active ? t('admin.common.active') : t('admin.common.inactive')}
         />
       ),
     },
     {
-      title: 'Studentlar',
+      title: t('admin.groups.colStudents'),
       dataIndex: 'studentCount',
       width: 120,
       render: (value: number) => <Text strong>{value}</Text>,
     },
     {
-      title: 'Kurslar',
+      title: t('admin.groups.colCourses'),
       dataIndex: 'courseCount',
       width: 120,
       render: (value: number) => <Text strong>{value}</Text>,
     },
     {
-      title: 'Yaratilgan sana',
+      title: t('admin.common.createdAt'),
       dataIndex: 'createdAt',
       width: 180,
       render: (value: string) => <Text>{formatDate(value)}</Text>,
     },
     {
-      title: 'Amallar',
+      title: t('admin.common.actions'),
       key: 'actions',
       width: 260,
       render: (_, record) => (
@@ -292,19 +294,19 @@ export const DashboardGroupsPage = () => {
             icon={<EyeOutlined />}
             onClick={() => navigate(`${PATH_DASHBOARD.groups}/${record.id}`)}
           >
-            Ochish
+            {t('admin.common.open')}
           </Button>
           <Button icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-            Tahrirlash
+            {t('admin.common.edit')}
           </Button>
           <Button onClick={() => handleToggleActive(record)}>
-            {record.active ? 'Nofaollashtirish' : 'Faollashtirish'}
+            {record.active ? t('admin.groups.deactivate') : t('admin.groups.activate')}
           </Button>
           <Popconfirm
-            title="Guruhni o‘chirish"
-            description="Bu amalni ortga qaytarib bo‘lmaydi. Davom etilsinmi?"
-            okText="O‘chirish"
-            cancelText="Bekor qilish"
+            title={t('admin.groups.deleteTitle')}
+            description={t('admin.groups.deleteHint')}
+            okText={t('admin.common.delete')}
+            cancelText={t('admin.common.cancel')}
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDeleteGroup(record.id)}
           >
@@ -318,13 +320,13 @@ export const DashboardGroupsPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Guruhlar | Admin panel</title>
+        <title>{t('admin.groups.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Guruhlar"
-        title="Guruhlarni boshqarish"
-        subtitle="Talabalarni guruhga qo‘shing, kurslarni biriktiring va hammasini sodda tartibda boshqaring."
+        eyebrow={t('admin.groups.eyebrow')}
+        title={t('admin.groups.title')}
+        subtitle={t('admin.groups.subtitle')}
         actions={
           <Button
             type="primary"
@@ -333,17 +335,17 @@ export const DashboardGroupsPage = () => {
             onClick={openCreateModal}
             style={{ height: 46, borderRadius: 16 }}
           >
-            Yangi guruh
+            {t('admin.groups.new')}
           </Button>
         }
       >
         <AdminSectionCard
-          title="Guruhlar ro‘yxati"
+          title={t('admin.groups.listTitle')}
           extra={
             <Space wrap>
               <Input.Search
                 allowClear
-                placeholder="Guruh nomi yoki tavsif bo‘yicha qidiring"
+                placeholder={t('admin.groups.search')}
                 style={{ width: 340, maxWidth: '100%' }}
                 value={searchKey}
                 onChange={(event) => setSearchKey(event.target.value)}
@@ -360,9 +362,9 @@ export const DashboardGroupsPage = () => {
                   fetchGroups(1, pagination.pageSize || 10, searchKey, nextValue);
                 }}
                 options={[
-                  { label: 'Barchasi', value: 'all' },
-                  { label: 'Faol', value: 'active' },
-                  { label: 'Nofaol', value: 'inactive' },
+                  { label: t('admin.common.all'), value: 'all' },
+                  { label: t('admin.common.active'), value: 'active' },
+                  { label: t('admin.common.inactive'), value: 'inactive' },
                 ]}
               />
             </Space>
@@ -371,23 +373,23 @@ export const DashboardGroupsPage = () => {
           <Row gutter={[14, 14]} style={{ marginBottom: 18 }}>
             {[
               {
-                title: 'Jami guruhlar',
+                title: t('admin.groups.statTotal'),
                 value: overview?.totalGroups ?? count,
               },
               {
-                title: 'Faol guruhlar',
+                title: t('admin.groups.statActive'),
                 value:
                   overview?.activeGroups ??
                   groups.filter((group) => group.active).length,
               },
               {
-                title: 'Student birikmalari',
+                title: t('admin.groups.statStudents'),
                 value:
                   overview?.totalStudentAssignments ??
                   groups.reduce((sum, group) => sum + group.studentCount, 0),
               },
               {
-                title: 'Kurs birikmalari',
+                title: t('admin.groups.statCourses'),
                 value:
                   overview?.totalCourseAssignments ??
                   groups.reduce((sum, group) => sum + group.courseCount, 0),
@@ -439,10 +441,10 @@ export const DashboardGroupsPage = () => {
         open={modalOpen}
         onCancel={closeModal}
         onOk={() => form.submit()}
-        okText={editingGroup ? 'Saqlash' : 'Yaratish'}
-        cancelText="Bekor qilish"
+        okText={editingGroup ? t('admin.common.save') : t('admin.common.create')}
+        cancelText={t('admin.common.cancel')}
         confirmLoading={submitting}
-        title={editingGroup ? 'Guruhni tahrirlash' : 'Yangi guruh yaratish'}
+        title={editingGroup ? t('admin.groups.editTitle') : t('admin.groups.createTitle')}
         styles={ADMIN_MODAL_STYLES}
       >
         <Form<GroupFormValues>
@@ -454,30 +456,30 @@ export const DashboardGroupsPage = () => {
         >
           <Form.Item
             name="name"
-            label="Guruh nomi"
-            rules={[{ required: true, message: 'Guruh nomini kiriting.' }]}
+            label={t('admin.groups.name')}
+            rules={[{ required: true, message: t('admin.groups.nameRequired') }]}
           >
-            <Input size="large" placeholder="Masalan: Elektrik-2026-1" />
+            <Input size="large" placeholder={t('admin.groups.namePh')} />
           </Form.Item>
 
-          <Form.Item name="description" label="Tavsif">
+          <Form.Item name="description" label={t('admin.groups.desc')}>
             <Input.TextArea
               rows={4}
-              placeholder="Guruh haqida qisqa izoh yoki oqim tavsifi"
+              placeholder={t('admin.groups.descPh')}
             />
           </Form.Item>
 
           <Form.Item
             name="active"
-            label="Faollik holati"
+            label={t('admin.groups.activeState')}
             valuePropName="checked"
             extra={
               <Paragraph style={{ margin: '6px 0 0', color: token.colorTextSecondary }}>
-                Nofaol guruh talabalarga kurs ruxsati bermaydi.
+                {t('admin.groups.activeHint')}
               </Paragraph>
             }
           >
-            <Switch checkedChildren="Faol" unCheckedChildren="Nofaol" />
+            <Switch checkedChildren={t('admin.common.active')} unCheckedChildren={t('admin.common.inactive')} />
           </Form.Item>
         </Form>
       </Modal>

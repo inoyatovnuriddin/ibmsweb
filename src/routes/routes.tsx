@@ -43,7 +43,7 @@ import { DashboardLayout, GuestLayout, UserAccountLayout } from '../layouts';
 import React, { ReactNode, useEffect } from 'react';
 import { ProtectedRoute, RequirePage, RequireSuperAdmin } from './ProtectedRoute.tsx';
 import { CertificateVerifyPage } from '../pages/certificate';
-import { DashboardRolesPage } from '../pages/dashboards';
+import { DashboardRolesPage } from '../pages';
 
 export const ScrollToTop: React.FC = () => {
   const { pathname } = useLocation();
@@ -249,16 +249,6 @@ const router = createBrowserRouter([
   {
     path: '/reset-password',
     element: <ResetPasswordConfirmPage />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: '/signup',
-    element: <SignUpPage />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: '/login',
-    element: <SignInPage />,
     errorElement: <ErrorPage />,
   },
   {

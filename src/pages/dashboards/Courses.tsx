@@ -23,6 +23,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../services/api.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 import {
   ADMIN_MODAL_STYLES,
   AdminPageFrame,
@@ -43,6 +44,7 @@ type Course = {
 };
 
 export const DashboardCoursesPage = () => {
+  const { t } = useAppTranslation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -83,7 +85,7 @@ export const DashboardCoursesPage = () => {
         });
       })
       .catch(() => {
-        message.error('Kurslarni yuklashda xatolik yuz berdi');
+        message.error(t('admin.courses.loadError'));
       })
       .finally(() => setLoading(false));
   };
@@ -128,13 +130,13 @@ export const DashboardCoursesPage = () => {
 
       await request;
       message.success(
-        editingCourse ? 'Kurs yangilandi' : 'Yangi kurs qo‘shildi'
+        editingCourse ? t('admin.courses.updated') : t('admin.courses.created')
       );
       setModalVisible(false);
       setEditingCourse(null);
       fetchCourses(pagination.current, pagination.pageSize, searchTerm);
     } catch {
-      message.error('Saqlashda xatolik yuz berdi');
+      message.error(t('admin.common.saveError'));
     } finally {
       setSaving(false);
     }
@@ -144,11 +146,11 @@ export const DashboardCoursesPage = () => {
     apiClient
       .delete(`/v1/course/delete`, { params: { id } })
       .then(() => {
-        message.success('Kurs o‘chirildi');
+        message.success(t('admin.courses.deleted'));
         fetchCourses(pagination.current, pagination.pageSize, searchTerm);
       })
       .catch(() => {
-        message.error('O‘chirishda xatolik yuz berdi');
+        message.error(t('admin.common.deleteError'));
       });
   };
 
@@ -175,7 +177,7 @@ export const DashboardCoursesPage = () => {
       fixed: 'left',
     },
     {
-      title: 'Kurs',
+      title: t('admin.courses.colCourse'),
       key: 'course',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -186,7 +188,7 @@ export const DashboardCoursesPage = () => {
       width: 260,
     },
     {
-      title: 'Tavsif',
+      title: t('admin.courses.colDesc'),
       key: 'description',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -204,7 +206,7 @@ export const DashboardCoursesPage = () => {
       width: 420,
     },
     {
-      title: 'Instruktor',
+      title: t('admin.courses.colInstructor'),
       dataIndex: 'instructor',
       key: 'instructor',
       render: (value) => (
@@ -224,27 +226,27 @@ export const DashboardCoursesPage = () => {
       width: 180,
     },
     {
-      title: 'Amallar',
+      title: t('admin.common.actions'),
       key: 'actions',
       fixed: 'right',
       width: 220,
       render: (_, record) => (
         <Space wrap>
-          <Tooltip title="Tahrirlash">
+          <Tooltip title={t('admin.common.edit')}>
             <Button icon={<EditOutlined />} onClick={() => showModal(record)} />
           </Tooltip>
-          <Tooltip title="Mavzular">
+          <Tooltip title={t('admin.courses.topics')}>
             <Button
               icon={<ReadOutlined />}
               onClick={() => navigate(`/dashboards/topics?courseId=${record.id}`)}
             />
           </Tooltip>
           <Popconfirm
-            title="Kurs o‘chirilsinmi?"
-            description="Kursga tegishli mavzular, videolar va testlar ham o‘chishi mumkin."
+            title={t('admin.courses.deleteConfirm')}
+            description={t('admin.courses.deleteHint')}
             onConfirm={() => handleDelete(record.id)}
-            okText="Ha, o‘chirilsin"
-            cancelText="Yo‘q"
+            okText={t('admin.common.yesDelete')}
+            cancelText={t('admin.common.no')}
             okButtonProps={{ danger: true }}
           >
             <Button danger icon={<DeleteOutlined />} />
@@ -257,13 +259,13 @@ export const DashboardCoursesPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Kurslar | Admin panel</title>
+        <title>{t('admin.courses.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Kurslar moduli"
-        title="Kurslar boshqaruvi"
-        subtitle="Kurslar nomi, tavsifi va instruktor ma'lumotlarini shu bo‘limdan boshqaring."
+        eyebrow={t('admin.courses.eyebrow')}
+        title={t('admin.courses.title')}
+        subtitle={t('admin.courses.subtitle')}
         actions={
           <Button
             type="primary"
@@ -272,15 +274,15 @@ export const DashboardCoursesPage = () => {
             onClick={() => showModal()}
             style={{ borderRadius: 16, height: 46 }}
           >
-            Yangi kurs
+            {t('admin.courses.new')}
           </Button>
         }
       >
         <AdminSectionCard
-          title="Kurslar ro‘yxati"
+          title={t('admin.courses.listTitle')}
           extra={
             <Input.Search
-              placeholder="Kurs nomi yoki tavsifi bo‘yicha qidiring"
+              placeholder={t('admin.courses.search')}
               allowClear
               onSearch={(value) => searchCourses(value, true)}
               onChange={(e) => searchCourses(e.target.value)}
@@ -295,7 +297,7 @@ export const DashboardCoursesPage = () => {
             scroll={{ x: 1100 }}
             pagination={{
               ...pagination,
-              showTotal: (total) => `Jami: ${total} ta kurs`,
+              showTotal: (total) => t('admin.courses.total', { count: total }),
             }}
             loading={loading}
             onChange={handleTableChange}
@@ -312,51 +314,51 @@ export const DashboardCoursesPage = () => {
           }}
           onOk={handleModalOk}
           confirmLoading={saving}
-          title={editingCourse ? 'Kursni tahrirlash' : 'Yangi kurs qo‘shish'}
-          okText={editingCourse ? 'Saqlash' : 'Qo‘shish'}
-          cancelText="Bekor qilish"
+          title={editingCourse ? t('admin.courses.editTitle') : t('admin.courses.createTitle')}
+          okText={editingCourse ? t('admin.common.save') : t('admin.common.add')}
+          cancelText={t('admin.common.cancel')}
           destroyOnClose
           styles={ADMIN_MODAL_STYLES}
         >
           <Form form={form} layout="vertical">
             <Form.Item
-              label="Kurs nomi rus tilida"
+              label={t('admin.courses.titleRu')}
               name="titleru"
-              rules={[{ required: true, message: 'Kurs nomini kiriting' }]}
+              rules={[{ required: true, message: t('admin.courses.titleRequired') }]}
             >
               <Input />
             </Form.Item>
             <Form.Item
-              label="Kurs nomi o‘zbek tilida"
+              label={t('admin.courses.titleUz')}
               name="titleuz"
-              rules={[{ required: true, message: 'Kurs nomini kiriting' }]}
+              rules={[{ required: true, message: t('admin.courses.titleRequired') }]}
             >
               <Input />
             </Form.Item>
-            <Form.Item label="Kurs nomi ingliz tilida (diplom uchun)" name="titleeng">
-              <Input placeholder="Masalan: FORKLIFT DRIVER" />
+            <Form.Item label={t('admin.courses.titleEn')} name="titleeng">
+              <Input placeholder={t('admin.courses.titleEnPh')} />
             </Form.Item>
             <Form.Item
-              label="Ruscha tavsif"
+              label={t('admin.courses.descRu')}
               name="descriptionru"
-              rules={[{ required: true, message: 'Tavsifni kiriting' }]}
+              rules={[{ required: true, message: t('admin.courses.descRequired') }]}
             >
               <Input.TextArea rows={3} />
             </Form.Item>
             <Form.Item
-              label="O‘zbekcha tavsif"
+              label={t('admin.courses.descUz')}
               name="descriptionuz"
-              rules={[{ required: true, message: 'Tavsifni kiriting' }]}
+              rules={[{ required: true, message: t('admin.courses.descRequired') }]}
             >
               <Input.TextArea rows={3} />
             </Form.Item>
-            <Form.Item label="Inglizcha tavsif" name="descriptioneng">
+            <Form.Item label={t('admin.courses.descEn')} name="descriptioneng">
               <Input.TextArea rows={3} />
             </Form.Item>
             <Form.Item
-              label="Instruktor"
+              label={t('admin.courses.colInstructor')}
               name="instructor"
-              rules={[{ required: true, message: 'Instruktorni kiriting' }]}
+              rules={[{ required: true, message: t('admin.courses.instructorRequired') }]}
             >
               <Input />
             </Form.Item>

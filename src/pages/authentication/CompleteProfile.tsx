@@ -68,7 +68,7 @@ export const CompleteProfilePage = () => {
 
   useEffect(() => {
     if (!readAccessToken()) {
-      navigate('/login', { replace: true });
+      navigate('/auth/signin', { replace: true });
       return;
     }
 

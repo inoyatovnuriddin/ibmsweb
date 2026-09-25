@@ -56,7 +56,7 @@ export const clearOauthIntent = () => {
 };
 
 export const buildGoogleOauthUrl = () => {
-  const apiBase = import.meta.env.VITE_API_URL || '/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
   const normalizedBase = apiBase.replace(/\/api\/?$/, '');
   return `${normalizedBase}/api/oauth2/authorize/google`;
 };

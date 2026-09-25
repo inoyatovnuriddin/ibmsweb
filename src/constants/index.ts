@@ -108,7 +108,7 @@ const ERROR_ITEMS = [
   { title: '503', path: PATH_ERROR.error503 },
 ];
 
-const API_URL = '/api/v1';
+const API_URL = 'http://localhost:8080/api/v1';
 
 export {
   PATH_CALENDAR,

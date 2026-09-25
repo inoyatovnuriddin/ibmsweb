@@ -14,5 +14,4 @@ export { SocialMediaCard } from './SocialMediaCard/SocialMediaCard';
 export { TimelineCard } from './TimelineCard/TimelineCard';
 export { UserAvatar } from './UserAvatar/UserAvatar';
 export * from './Nprogress';
-export * from './dashboard';
 export * from './Container';

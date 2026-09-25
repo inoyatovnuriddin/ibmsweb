@@ -34,6 +34,7 @@ import { useSelector } from 'react-redux';
 import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../services/api.ts';
 import type { RootState } from '../../redux/store.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 import {
   ADMIN_MODAL_STYLES,
   AdminPageFrame,
@@ -94,16 +95,19 @@ interface ApiWrapper<T> {
   message?: string;
 }
 
-const FALLBACK_ROLE_OPTIONS = [
-  { value: 'ROLE_ADMIN', label: 'Administrator' },
-  { value: 'ROLE_INSTRUCTOR', label: 'O‘qituvchi' },
-  { value: 'ROLE_USER', label: 'Foydalanuvchi' },
+// Опции собираем функцией: подписи зависят от языка, а хук на верхнем уровне не вызвать.
+type Translate = ReturnType<typeof useAppTranslation>['t'];
+
+const buildFallbackRoleOptions = (t: Translate) => [
+  { value: 'ROLE_ADMIN', label: t('admin.users.roleAdmin') },
+  { value: 'ROLE_INSTRUCTOR', label: t('admin.users.roleTeacher') },
+  { value: 'ROLE_USER', label: t('admin.users.roleUser') },
 ];
 
-const statusOptions = [
-  { value: 'Active', label: 'Faol' },
-  { value: 'Block', label: 'Bloklangan' },
-  { value: 'Confirm', label: 'Tasdiqlanmagan' },
+const buildStatusOptions = (t: Translate) => [
+  { value: 'Active', label: t('admin.common.active') },
+  { value: 'Block', label: t('admin.users.stBlocked') },
+  { value: 'Confirm', label: t('admin.users.stUnconfirmed') },
 ];
 
 const toDayjs = (value?: string | null): Dayjs | null => {
@@ -113,6 +117,7 @@ const toDayjs = (value?: string | null): Dayjs | null => {
 };
 
 export const DashboardUsersPage = () => {
+  const { t } = useAppTranslation();
   const {
     token: { colorText, colorTextSecondary },
   } = theme.useToken();
@@ -156,7 +161,7 @@ export const DashboardUsersPage = () => {
       anyError?.response?.data?.errors?.message ||
       anyError?.response?.data?.message ||
       anyError?.message ||
-      'Saqlashda xatolik yuz berdi'
+      t('admin.common.saveError')
     );
   };
 
@@ -188,12 +193,12 @@ export const DashboardUsersPage = () => {
   const roleOptions = useMemo(() => {
     const source = roles.length
       ? roles.map((r) => ({ value: r.code, label: r.name || r.code }))
-      : FALLBACK_ROLE_OPTIONS;
+      : buildFallbackRoleOptions(t);
     // Only a super admin may grant the super admin role.
     return isSuperAdmin
       ? source
       : source.filter((o) => o.value !== 'ROLE_SUPER_ADMIN');
-  }, [roles, isSuperAdmin]);
+  }, [roles, isSuperAdmin, t]);
 
   const roleText = (role: string) => {
     const found = roleOptions.find((item) => item.value === role);
@@ -259,10 +264,10 @@ export const DashboardUsersPage = () => {
   };
 
   const statusBadge = (status: UserStatus) => {
-    if (status === 'Active') return <Badge status="success" text="Faol" />;
-    if (status === 'Block') return <Badge status="error" text="Bloklangan" />;
+    if (status === 'Active') return <Badge status="success" text={t('admin.common.active')} />;
+    if (status === 'Block') return <Badge status="error" text={t('admin.users.stBlocked')} />;
     if (status === 'Confirm') {
-      return <Badge status="processing" text="Tasdiqlanmagan" />;
+      return <Badge status="processing" text={t('admin.users.stUnconfirmed')} />;
     }
     return status;
   };
@@ -270,7 +275,7 @@ export const DashboardUsersPage = () => {
   const handleDelete = async (record: UserResponse) => {
     try {
       await deleteUser(record.id);
-      message.success('Foydalanuvchi o‘chirildi');
+      message.success(t('admin.users.deleted'));
       const isLastRowOnPage = users.length === 1 && (pagination.current || 1) > 1;
       const nextPage = isLastRowOnPage
         ? (pagination.current || 2) - 1
@@ -311,7 +316,7 @@ export const DashboardUsersPage = () => {
         };
 
         await updateUser(editingUser.id, updatePayload);
-        message.success('Foydalanuvchi yangilandi');
+        message.success(t('admin.users.updated'));
       } else {
         const createPayload = {
           firstname: values.firstname?.trim(),
@@ -325,7 +330,7 @@ export const DashboardUsersPage = () => {
         };
 
         await apiClient.post('/v1/users/create', createPayload);
-        message.success('Yangi foydalanuvchi qo‘shildi');
+        message.success(t('admin.users.created'));
       }
 
       setIsModalOpen(false);
@@ -371,7 +376,7 @@ export const DashboardUsersPage = () => {
       width: 260,
     },
     {
-      title: 'Aloqa',
+      title: t('admin.users.contact'),
       key: 'contact',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -382,25 +387,25 @@ export const DashboardUsersPage = () => {
       width: 250,
     },
     {
-      title: 'Passport',
+      title: t('admin.users.passportShort'),
       dataIndex: 'passportId',
       render: (value?: string | null) => value || '-',
       width: 130,
     },
     {
-      title: 'Tug‘ilgan sana',
+      title: t('admin.users.birthDate'),
       dataIndex: 'birthDate',
       render: (value?: string | null) => value || '-',
       width: 140,
     },
     {
-      title: 'Holat',
+      title: t('admin.common.status'),
       dataIndex: 'status',
       render: (status: UserStatus) => statusBadge(status),
       width: 140,
     },
     {
-      title: 'Rollar',
+      title: t('admin.users.roles'),
       dataIndex: 'roles',
       render: (userRoles: string[]) => (
         <Space wrap>
@@ -421,7 +426,7 @@ export const DashboardUsersPage = () => {
       ),
     },
     {
-      title: 'Amallar',
+      title: t('admin.common.actions'),
       key: 'actions',
       width: 140,
       render: (_value, record) => {
@@ -430,14 +435,14 @@ export const DashboardUsersPage = () => {
         const deletable = !isSelf && (isSuperAdmin || !targetIsSuperAdmin);
         return (
           <Space>
-            <Tooltip title="Tahrirlash">
+            <Tooltip title={t('admin.common.edit')}>
               <Button icon={<EditOutlined />} onClick={() => showEditModal(record)} />
             </Tooltip>
             <Popconfirm
-              title="Foydalanuvchini o‘chirish"
-              description={`${record.firstname} ${record.lastname} o‘chirilsinmi?`}
-              okText="Ha, o‘chirish"
-              cancelText="Bekor qilish"
+              title={t('admin.users.deleteTitle')}
+              description={t('admin.users.deleteHint', { name: `${record.firstname} ${record.lastname}` })}
+              okText={t('admin.common.yesDeleteShort')}
+              cancelText={t('admin.common.cancel')}
               okButtonProps={{ danger: true }}
               onConfirm={() => handleDelete(record)}
               disabled={!deletable}
@@ -463,13 +468,13 @@ export const DashboardUsersPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Foydalanuvchilar | Admin panel</title>
+        <title>{t('admin.users.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Foydalanuvchilar moduli"
-        title="Foydalanuvchilar boshqaruvi"
-        subtitle="Administratorlar, o‘qituvchilar va o‘quvchilar ma'lumotlarini yagona standart asosida boshqaring."
+        eyebrow={t('admin.users.eyebrow')}
+        title={t('admin.users.title')}
+        subtitle={t('admin.users.subtitle')}
         actions={
           <Button
             type="primary"
@@ -478,15 +483,15 @@ export const DashboardUsersPage = () => {
             onClick={showCreateModal}
             style={{ borderRadius: 16, height: 46 }}
           >
-            Foydalanuvchi qo‘shish
+            {t('admin.users.new')}
           </Button>
         }
       >
         <AdminSectionCard
-          title="Foydalanuvchilar ro‘yxati"
+          title={t('admin.users.listTitle')}
           extra={
             <Input.Search
-              placeholder="Ism, telefon yoki email bo‘yicha qidiring"
+              placeholder={t('admin.users.search')}
               allowClear
               style={{ width: 340, maxWidth: '100%' }}
               onSearch={onSearch}
@@ -503,7 +508,7 @@ export const DashboardUsersPage = () => {
               current: pagination.current,
               pageSize: pagination.pageSize,
               total: count,
-              showTotal: (total) => `Jami: ${total}`,
+              showTotal: (total) => t('admin.users.total', { count: total }),
             }}
             onChange={handleTableChange}
             scroll={{ x: 1180 }}
@@ -515,8 +520,8 @@ export const DashboardUsersPage = () => {
           open={isModalOpen}
           onCancel={handleCancel}
           onOk={() => form.submit()}
-          okText="Saqlash"
-          cancelText="Bekor qilish"
+          okText={t('admin.common.save')}
+          cancelText={t('admin.common.cancel')}
           okButtonProps={{ loading: saving }}
           destroyOnClose
           centered
@@ -542,7 +547,7 @@ export const DashboardUsersPage = () => {
                 icon={<UserOutlined />}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600 }}>Profil rasmi</div>
+                <div style={{ fontWeight: 600 }}>{t('admin.users.photo')}</div>
                 <div style={{ fontSize: 12, color: 'rgba(100,116,139,0.95)' }}>
                   Ixtiyoriy. Rasm tanlangach kerakli qismini kesib olishingiz mumkin
                   (JPG/PNG, ≤ 5MB).
@@ -555,7 +560,7 @@ export const DashboardUsersPage = () => {
                   aspect={1}
                   modalTitle="Rasmni kesish"
                   modalOk="Kesish"
-                  modalCancel="Bekor qilish"
+                  modalCancel={t('admin.common.cancel')}
                 >
                   <Upload
                     accept="image/*"
@@ -565,11 +570,11 @@ export const DashboardUsersPage = () => {
                       const isImage = file.type.startsWith('image/');
                       const isSmall = file.size / 1024 / 1024 < 5;
                       if (!isImage) {
-                        message.error('Faqat rasm yuklash mumkin');
+                        message.error(t('admin.users.imageOnly'));
                         return Upload.LIST_IGNORE;
                       }
                       if (!isSmall) {
-                        message.error('Rasm hajmi 5MB dan kichik bo‘lishi kerak');
+                        message.error(t('admin.users.imageTooBig'));
                         return Upload.LIST_IGNORE;
                       }
                       if (imagePreview?.startsWith('blob:')) {
@@ -590,7 +595,7 @@ export const DashboardUsersPage = () => {
                   <Button
                     danger
                     icon={<DeleteOutlined />}
-                    aria-label="Rasmni olib tashlash"
+                    aria-label={t('admin.users.removePhoto')}
                     onClick={() => {
                       if (imagePreview?.startsWith('blob:')) {
                         URL.revokeObjectURL(imagePreview);
@@ -605,38 +610,38 @@ export const DashboardUsersPage = () => {
             </div>
 
             <Form.Item
-              label="Ism"
+              label={t('admin.users.firstName')}
               name="firstname"
-              rules={[{ required: true, message: 'Ism majburiy' }]}
+              rules={[{ required: true, message: t('admin.users.reqFirstName') }]}
             >
               <Input />
             </Form.Item>
 
             <Form.Item
-              label="Familiya"
+              label={t('admin.users.lastName')}
               name="lastname"
-              rules={[{ required: true, message: 'Familiya majburiy' }]}
+              rules={[{ required: true, message: t('admin.users.reqLastName') }]}
             >
               <Input />
             </Form.Item>
 
             <Form.Item
-              label="Sharif"
+              label={t('admin.users.middleName')}
               name="middlename"
-              rules={[{ required: true, message: 'Sharif majburiy' }]}
+              rules={[{ required: true, message: t('admin.users.reqMiddleName') }]}
             >
               <Input />
             </Form.Item>
 
-            <Form.Item label="Telefon raqami" name="phoneNumber">
+            <Form.Item label={t('admin.users.phone')} name="phoneNumber">
               <Input />
             </Form.Item>
 
-            <Form.Item label="Passport seriya va raqami" name="passportId">
+            <Form.Item label={t('admin.users.passport')} name="passportId">
               <Input />
             </Form.Item>
 
-            <Form.Item label="Tug‘ilgan sana" name="birthDate">
+            <Form.Item label={t('admin.users.birthDate')} name="birthDate">
               <DatePicker style={{ width: '100%' }} format={DATE_FORMAT} />
             </Form.Item>
 
@@ -647,21 +652,21 @@ export const DashboardUsersPage = () => {
                   showIcon
                   style={{ marginBottom: 16 }}
                   message="Parolni o‘zgartirish alohida boshqariladi"
-                  description="Agar parol yangilanmasa, mavjud kirish ma’lumotlari o‘zgarishsiz qoladi."
+                  description={t('admin.users.passwordHint')}
                 />
                 <Form.Item
-                  label="Email"
+                  label={t('admin.common.email')}
                   name="email"
-                  rules={[{ required: true, message: 'Email majburiy' }]}
+                  rules={[{ required: true, message: t('admin.users.reqEmail') }]}
                 >
                   <Input />
                 </Form.Item>
 
                 <Form.Item
-                  label="Parolni yangilash"
+                  label={t('admin.users.updatePassword')}
                   name="changePassword"
                   valuePropName="checked"
-                  extra="Foydalanuvchi parolini yangilashni xohlaysizmi?"
+                  extra={t('admin.users.updatePasswordQ')}
                 >
                   <Switch checkedChildren="Ha" unCheckedChildren="Yo‘q" />
                 </Form.Item>
@@ -671,26 +676,26 @@ export const DashboardUsersPage = () => {
                     getFieldValue('changePassword') ? (
                       <>
                         <Form.Item
-                          label="Yangi parol"
+                          label={t('admin.users.newPassword')}
                           name="password"
-                          rules={[{ required: true, message: 'Yangi parolni kiriting' }]}
+                          rules={[{ required: true, message: t('admin.users.reqNewPassword') }]}
                         >
                           <Input.Password />
                         </Form.Item>
 
                         <Form.Item
-                          label="Yangi parolni tasdiqlang"
+                          label={t('admin.users.confirmPassword')}
                           name="confirmPassword"
                           dependencies={['password']}
                           rules={[
-                            { required: true, message: 'Parolni tasdiqlang' },
+                            { required: true, message: t('admin.users.reqConfirm') },
                             ({ getFieldValue }) => ({
                               validator(_, value) {
                                 if (!value || getFieldValue('password') === value) {
                                   return Promise.resolve();
                                 }
                                 return Promise.reject(
-                                  new Error('Parollar bir xil bo‘lishi kerak')
+                                  new Error(t('admin.users.passwordsMismatch'))
                                 );
                               },
                             }),
@@ -704,24 +709,24 @@ export const DashboardUsersPage = () => {
                 </Form.Item>
 
                 <Form.Item
-                  label="Holat"
+                  label={t('admin.common.status')}
                   name="status"
-                  rules={[{ required: true, message: 'Holat majburiy' }]}
+                  rules={[{ required: true, message: t('admin.users.reqStatus') }]}
                 >
-                  <Select options={statusOptions} placeholder="Holatni tanlang" />
+                  <Select options={buildStatusOptions(t)} placeholder={t('admin.users.statusPh')} />
                 </Form.Item>
               </>
             ) : null}
 
             <Form.Item
-              label="Rollar"
+              label={t('admin.users.roles')}
               name="roles"
-              rules={[{ required: true, message: 'Kamida bitta rol tanlang' }]}
+              rules={[{ required: true, message: t('admin.users.reqRoles') }]}
             >
               <Select
                 mode="multiple"
                 options={roleOptions}
-                placeholder="Rollarni tanlang"
+                placeholder={t('admin.users.rolesPh')}
                 optionFilterProp="label"
                 showSearch
               />

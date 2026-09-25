@@ -59,7 +59,7 @@ const refreshToken = async (): Promise<string | null> => {
 
 // === Axios instance ===
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
   timeout: 10000,
   // headers: {
   //   'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ export const apiClient = axios.create({
  * token left in localStorage can't turn a public page into a forced sign-in.
  */
 export const publicApiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
   timeout: 10000,
 });
 

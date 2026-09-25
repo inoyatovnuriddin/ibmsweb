@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 import {
   ADMIN_MODAL_STYLES,
   AdminPageFrame,
@@ -86,25 +87,29 @@ const formatDateTime = (value?: string | null) => {
   return parsed.isValid() ? parsed.format('DD.MM.YYYY HH:mm') : value;
 };
 
-const renderStatusTag = (status: PublicContactRequestStatus) => {
+// t приходит параметром: хелперы живут вне компонента и хук там вызвать нельзя.
+type Translate = ReturnType<typeof useAppTranslation>['t'];
+
+const renderStatusTag = (status: PublicContactRequestStatus, t: Translate) => {
   if (status === 'NEW') {
-    return <Badge status="processing" text="Yangi" />;
+    return <Badge status="processing" text={t('admin.contacts.statusNew')} />;
   }
 
   if (status === 'REVIEWED') {
-    return <Badge status="warning" text="Ko‘rib chiqilgan" />;
+    return <Badge status="warning" text={t('admin.contacts.statusReviewed')} />;
   }
 
-  return <Badge status="success" text="Yopilgan" />;
+  return <Badge status="success" text={t('admin.contacts.statusClosed')} />;
 };
 
-const statusOptions = [
-  { value: 'NEW', label: 'Yangi' },
-  { value: 'REVIEWED', label: 'Ko‘rib chiqilgan' },
-  { value: 'CLOSED', label: 'Yopilgan' },
+const buildStatusOptions = (t: Translate) => [
+  { value: 'NEW', label: t('admin.contacts.statusNew') },
+  { value: 'REVIEWED', label: t('admin.contacts.statusReviewed') },
+  { value: 'CLOSED', label: t('admin.contacts.statusClosed') },
 ] as const;
 
 export const DashboardPublicContactRequestsPage = () => {
+  const { t } = useAppTranslation();
   const { token } = theme.useToken();
   const [overview, setOverview] = useState<PublicContactRequestOverview | null>(null);
   const [items, setItems] = useState<PublicContactRequestItem[]>([]);
@@ -214,7 +219,7 @@ export const DashboardPublicContactRequestsPage = () => {
 
     try {
       const updated = await updatePublicContactRequestStatus(requestId, status);
-      message.success('Murojaat holati yangilandi.');
+      message.success(t('admin.contacts.statusUpdated'));
 
       setItems((current) =>
         current.map((item) => (item.id === requestId ? { ...item, status: updated.status } : item))
@@ -234,7 +239,7 @@ export const DashboardPublicContactRequestsPage = () => {
 
   const columns: ColumnsType<PublicContactRequestItem> = [
     {
-      title: 'F.I.SH',
+      title: t('admin.common.fullName'),
       key: 'fullName',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -246,7 +251,7 @@ export const DashboardPublicContactRequestsPage = () => {
       ),
     },
     {
-      title: 'Xabar preview',
+      title: t('admin.contacts.messagePreview'),
       dataIndex: 'message',
       render: (value: string) => (
         <Paragraph
@@ -258,7 +263,7 @@ export const DashboardPublicContactRequestsPage = () => {
       ),
     },
     {
-      title: 'Sahifa',
+      title: t('admin.contacts.page'),
       dataIndex: 'sourcePage',
       width: 160,
       render: (value: string | null) => (
@@ -277,19 +282,19 @@ export const DashboardPublicContactRequestsPage = () => {
       ),
     },
     {
-      title: 'Status',
+      title: t('admin.contacts.status'),
       dataIndex: 'status',
       width: 160,
-      render: (value: PublicContactRequestStatus) => renderStatusTag(value),
+      render: (value: PublicContactRequestStatus) => renderStatusTag(value, t),
     },
     {
-      title: 'Sana',
+      title: t('admin.common.date'),
       dataIndex: 'createdAt',
       width: 170,
       render: (value: string) => formatDateTime(value),
     },
     {
-      title: 'Actions',
+      title: t('admin.common.actions'),
       key: 'actions',
       width: 250,
       render: (_, record) => (
@@ -299,7 +304,7 @@ export const DashboardPublicContactRequestsPage = () => {
             onClick={() => handleOpenDrawer(record.id)}
             style={{ borderRadius: 12 }}
           >
-            Ko‘rish
+            {t('admin.common.view')}
           </Button>
           <Button
             onClick={() => handleStatusUpdate(record.id, 'REVIEWED')}
@@ -327,31 +332,31 @@ export const DashboardPublicContactRequestsPage = () => {
   const stats = [
     {
       key: 'total',
-      title: 'Jami',
+      title: t('admin.common.total'),
       value: overview?.totalCount ?? count,
       icon: <InboxOutlined style={{ color: '#2563eb' }} />,
     },
     {
       key: 'new',
-      title: 'Yangi',
+      title: t('admin.contacts.statusNew'),
       value: overview?.newCount ?? 0,
       icon: <Badge status="processing" />,
     },
     {
       key: 'reviewed',
-      title: 'Ko‘rib chiqilgan',
+      title: t('admin.contacts.statusReviewed'),
       value: overview?.reviewedCount ?? 0,
       icon: <Badge status="warning" />,
     },
     {
       key: 'closed',
-      title: 'Yopilgan',
+      title: t('admin.contacts.statusClosed'),
       value: overview?.closedCount ?? 0,
       icon: <CheckCircleOutlined style={{ color: '#16a34a' }} />,
     },
     {
       key: 'day',
-      title: 'So‘nggi 24 soat',
+      title: t('admin.contacts.last24h'),
       value: overview?.last24HoursCount ?? 0,
       icon: <PhoneOutlined style={{ color: '#7c3aed' }} />,
     },
@@ -360,13 +365,13 @@ export const DashboardPublicContactRequestsPage = () => {
   return (
     <>
       <Helmet>
-        <title>Murojaatlar - Admin Dashboard</title>
+        <title>{t('admin.contacts.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="Public leadlar"
-        title="Murojaatlar"
-        subtitle="Landing sahifadagi public murojaatlar shu yerda ko‘rinadi. Adminlar qidirishi, filterlashi, detailini ochishi va statusini yangilashi mumkin."
+        eyebrow={t('admin.contacts.eyebrow')}
+        title={t('admin.contacts.title')}
+        subtitle={t('admin.contacts.subtitle')}
         actions={
           <Button
             icon={<ReloadOutlined />}
@@ -374,7 +379,7 @@ export const DashboardPublicContactRequestsPage = () => {
             loading={loading || overviewLoading}
             style={{ borderRadius: 14, height: 44 }}
           >
-            Yangilash
+            {t('admin.common.refresh')}
           </Button>
         }
       >
@@ -431,10 +436,10 @@ export const DashboardPublicContactRequestsPage = () => {
         </div>
 
         <AdminSectionCard
-          title="Filter va ro‘yxat"
+          title={t('admin.contacts.listTitle')}
           extra={
             <Text style={{ color: token.colorTextSecondary }}>
-              Jami: <strong style={{ color: token.colorText }}>{count}</strong>
+              {t('admin.common.totalColon')} <strong style={{ color: token.colorText }}>{count}</strong>
             </Text>
           }
         >
@@ -444,7 +449,7 @@ export const DashboardPublicContactRequestsPage = () => {
                 <Input
                   allowClear
                   prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
-                  placeholder="F.I.SH yoki xabar bo‘yicha qidiring"
+                  placeholder={t('admin.contacts.search')}
                   value={filters.searchKey}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -461,7 +466,7 @@ export const DashboardPublicContactRequestsPage = () => {
               <Col xs={24} sm={12} xl={4}>
                 <Select
                   allowClear
-                  placeholder="Status"
+                  placeholder={t('admin.contacts.status')}
                   value={filters.status}
                   onChange={(value) =>
                     setFilters((current) => ({
@@ -469,7 +474,7 @@ export const DashboardPublicContactRequestsPage = () => {
                       status: value,
                     }))
                   }
-                  options={statusOptions.map((option) => ({
+                  options={buildStatusOptions(t).map((option) => ({
                     value: option.value,
                     label: option.label,
                   }))}
@@ -480,7 +485,7 @@ export const DashboardPublicContactRequestsPage = () => {
               <Col xs={24} sm={12} xl={4}>
                 <Input
                   allowClear
-                  placeholder="Telefon"
+                  placeholder={t('admin.common.phone')}
                   value={filters.phoneNumber}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -494,7 +499,7 @@ export const DashboardPublicContactRequestsPage = () => {
               <Col xs={24} sm={12} xl={4}>
                 <Input
                   allowClear
-                  placeholder="Source page"
+                  placeholder={t('admin.contacts.sourcePage')}
                   value={filters.sourcePage}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -533,10 +538,10 @@ export const DashboardPublicContactRequestsPage = () => {
                 }
                 style={{ borderRadius: 14 }}
               >
-                Qo‘llash
+                {t('admin.common.apply')}
               </Button>
               <Button onClick={handleResetFilters} style={{ borderRadius: 14 }}>
-                Reset
+                {t('admin.common.reset')}
               </Button>
             </Space>
 
@@ -550,7 +555,7 @@ export const DashboardPublicContactRequestsPage = () => {
                 emptyText: (
                   <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="Murojaatlar topilmadi"
+                    description={t('admin.contacts.empty')}
                   />
                 ),
               }}
@@ -568,7 +573,7 @@ export const DashboardPublicContactRequestsPage = () => {
       </AdminPageFrame>
 
       <Drawer
-        title="Murojaat tafsilotlari"
+        title={t('admin.contacts.details')}
         open={drawerOpen}
         onClose={() => {
           setDrawerOpen(false);
@@ -578,15 +583,15 @@ export const DashboardPublicContactRequestsPage = () => {
         styles={ADMIN_MODAL_STYLES}
       >
         {detailLoading ? (
-          <Text>Yuklanmoqda...</Text>
+          <Text>{t('admin.common.loading')}</Text>
         ) : !selectedRequest ? (
-          <Empty description="Murojaat topilmadi" />
+          <Empty description={t('admin.contacts.notFound')} />
         ) : (
           <Space direction="vertical" size={18} style={{ width: '100%' }}>
             <AdminSectionCard>
               <Space direction="vertical" size={10} style={{ width: '100%' }}>
                 <div>
-                  <Text style={{ color: token.colorTextSecondary }}>F.I.SH</Text>
+                  <Text style={{ color: token.colorTextSecondary }}>{t('admin.common.fullName')}</Text>
                   <Title level={4} style={{ margin: '4px 0 0', color: token.colorText }}>
                     {selectedRequest.fullName}
                   </Title>
@@ -599,7 +604,7 @@ export const DashboardPublicContactRequestsPage = () => {
                   <Col span={12}>
                     <Text style={{ color: token.colorTextSecondary }}>Status</Text>
                     <div style={{ marginTop: 4 }}>
-                      {renderStatusTag(selectedRequest.status)}
+                      {renderStatusTag(selectedRequest.status, t)}
                     </div>
                   </Col>
                   <Col span={12}>
@@ -609,14 +614,14 @@ export const DashboardPublicContactRequestsPage = () => {
                     </div>
                   </Col>
                   <Col span={12}>
-                    <Text style={{ color: token.colorTextSecondary }}>Source page</Text>
+                    <Text style={{ color: token.colorTextSecondary }}>{t('admin.contacts.sourcePage')}</Text>
                     <div style={{ marginTop: 4 }}>{selectedRequest.sourcePage || '-'}</div>
                   </Col>
                 </Row>
               </Space>
             </AdminSectionCard>
 
-            <AdminSectionCard title="Xabar">
+            <AdminSectionCard title={t('admin.contacts.message')}>
               <Paragraph
                 style={{ marginBottom: 0, whiteSpace: 'pre-wrap', color: token.colorText }}
               >
@@ -624,18 +629,18 @@ export const DashboardPublicContactRequestsPage = () => {
               </Paragraph>
             </AdminSectionCard>
 
-            <AdminSectionCard title="Texnik ma’lumotlar">
+            <AdminSectionCard title={t('admin.contacts.technical')}>
               <Space direction="vertical" size={10} style={{ width: '100%' }}>
                 <div>
-                  <Text style={{ color: token.colorTextSecondary }}>Form session</Text>
+                  <Text style={{ color: token.colorTextSecondary }}>{t('admin.contacts.formSession')}</Text>
                   <div style={{ marginTop: 4 }}>{selectedRequest.formSessionId || '-'}</div>
                 </div>
                 <div>
-                  <Text style={{ color: token.colorTextSecondary }}>IP address</Text>
+                  <Text style={{ color: token.colorTextSecondary }}>{t('admin.contacts.ip')}</Text>
                   <div style={{ marginTop: 4 }}>{selectedRequest.ipAddress || '-'}</div>
                 </div>
                 <div>
-                  <Text style={{ color: token.colorTextSecondary }}>User agent</Text>
+                  <Text style={{ color: token.colorTextSecondary }}>{t('admin.contacts.userAgent')}</Text>
                   <Paragraph
                     style={{
                       marginBottom: 0,
@@ -650,7 +655,7 @@ export const DashboardPublicContactRequestsPage = () => {
               </Space>
             </AdminSectionCard>
 
-            <AdminSectionCard title="Status amallari">
+            <AdminSectionCard title={t('admin.contacts.statusActions')}>
               <Space wrap>
                 <Button
                   onClick={() => handleStatusUpdate(selectedRequest.id, 'REVIEWED')}
@@ -658,7 +663,7 @@ export const DashboardPublicContactRequestsPage = () => {
                   loading={statusUpdatingId === selectedRequest.id}
                   style={{ borderRadius: 12 }}
                 >
-                  REVIEWED qilish
+                  {t('admin.contacts.markReviewed')}
                 </Button>
                 <Button
                   type="primary"
@@ -668,7 +673,7 @@ export const DashboardPublicContactRequestsPage = () => {
                   loading={statusUpdatingId === selectedRequest.id}
                   style={{ borderRadius: 12 }}
                 >
-                  CLOSED qilish
+                  {t('admin.contacts.markClosed')}
                 </Button>
               </Space>
             </AdminSectionCard>

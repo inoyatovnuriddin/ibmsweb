@@ -38,7 +38,6 @@ const { Title, Text } = Typography;
 const NAME_MAX_LENGTH = 32;
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 16;
-const PASSPORT_PATTERN = /^[A-Z]{2}\d{7}$/;
 
 type SignUpFormValues = {
   firstname: string;
@@ -422,27 +421,13 @@ export const SignUpPage = () => {
                     <Form.Item
                       label={t('auth.form.passport')}
                       name="passportId"
-                      rules={[
-                        { required: true, message: t('auth.validation.passportRequired') },
-                        {
-                          validator: (_, value: string) => {
-                            const normalized = String(value || '').trim().toUpperCase();
-
-                            if (PASSPORT_PATTERN.test(normalized)) {
-                              return Promise.resolve();
-                            }
-
-                            return Promise.reject(
-                              new Error(t('auth.validation.passportInvalid'))
-                            );
-                          },
-                        },
-                      ]}
+                      // Формат не проверяем: кроме AA1234567 встречаются и другие документы.
+                      rules={[{ required: true, message: t('auth.validation.passportRequired') }]}
                       getValueFromEvent={(event) =>
                         event?.target?.value?.toUpperCase().replace(/\s+/g, '') || ''
                       }
                     >
-                      <Input size="large" placeholder="AA1234567" maxLength={9} />
+                      <Input size="large" placeholder="AA1234567" />
                     </Form.Item>
                   </Col>
 

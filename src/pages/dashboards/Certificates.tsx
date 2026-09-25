@@ -40,6 +40,7 @@ import { debounce } from 'lodash';
 import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../services/api';
 import { applyDate, buildDateGroups } from './certificateDates';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 import {
   CertificateVerification,
   deleteCertificate,
@@ -155,6 +156,7 @@ const getUserLabel = (u: User) =>
 const getCourseLabel = (c: Course) => c.titleru || c.titleuz || c.id;
 
 export const DashboardCertificatesPage = () => {
+  const { t } = useAppTranslation();
   const [items, setItems] = useState<CertificateVerification[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -294,8 +296,8 @@ export const DashboardCertificatesPage = () => {
   const copyLink = (id: string) => {
     const url = `${window.location.origin}/cert/${id}`;
     navigator.clipboard?.writeText(url).then(
-      () => message.success('Havola nusxalandi'),
-      () => message.error('Nusxalab boʻlmadi')
+      () => message.success(t('admin.certs.linkCopied')),
+      () => message.error(t('admin.certs.copyFailed'))
     );
   };
 
@@ -314,7 +316,7 @@ export const DashboardCertificatesPage = () => {
   const handleDelete = async (record: CertificateVerification) => {
     try {
       await deleteCertificate(record.id);
-      message.success('Sertifikat oʻchirildi');
+      message.success(t('admin.certs.deleted'));
       setItems((prev) => prev.filter((c) => c.id !== record.id));
     } catch (err) {
       message.error(getCertificateErrorMessage(err));
@@ -384,7 +386,7 @@ export const DashboardCertificatesPage = () => {
       } else {
         await load();
       }
-      message.success('Sertifikat yangilandi');
+      message.success(t('admin.certs.updated'));
       closeEdit();
     } catch (err) {
       message.error(getCertificateErrorMessage(err));
@@ -407,7 +409,7 @@ export const DashboardCertificatesPage = () => {
 
   const columns: ColumnsType<CertificateVerification> = [
     {
-      title: 'Qabul qiluvchi',
+      title: t('admin.certs.colRecipient'),
       key: 'recipient',
       render: (_, record) => (
         <Space>
@@ -435,7 +437,7 @@ export const DashboardCertificatesPage = () => {
       render: (value: string) => value || '—',
     },
     {
-      title: 'Turi',
+      title: t('admin.certs.colType'),
       dataIndex: 'templateName',
       key: 'templateName',
       width: 190,
@@ -449,7 +451,7 @@ export const DashboardCertificatesPage = () => {
       ),
     },
     {
-      title: 'Berilgan sana',
+      title: t('admin.certs.colIssued'),
       dataIndex: 'issuedAt',
       key: 'issuedAt',
       width: 160,
@@ -458,18 +460,18 @@ export const DashboardCertificatesPage = () => {
       render: (value: string) => formatDate(value),
     },
     {
-      title: 'Amal',
+      title: t('admin.certs.colAction'),
       key: 'action',
       width: 250,
       fixed: 'right',
       render: (_, record) => (
         <Space size={4} wrap>
-          <Tooltip title="Tekshirish sahifasi">
+          <Tooltip title={t('admin.certs.tip.verify')}>
             <Link to={`/cert/${record.id}`} target="_blank">
               <Button size="small" type="text" icon={<SafetyCertificateOutlined />} />
             </Link>
           </Tooltip>
-          <Tooltip title="Word (.docx) yuklab olish">
+          <Tooltip title={t('admin.certs.tip.docx')}>
             <Button
               size="small"
               type="text"
@@ -478,24 +480,24 @@ export const DashboardCertificatesPage = () => {
               onClick={() => handleDownloadDocx(record)}
             />
           </Tooltip>
-          <Tooltip title="QR-kodni yuklab olish">
+          <Tooltip title={t('admin.certs.tip.qr')}>
             <Button size="small" type="text" icon={<QrcodeOutlined />} onClick={() => setQrCert(record)} />
           </Tooltip>
-          <Tooltip title="Havolani nusxalash">
+          <Tooltip title={t('admin.certs.tip.copy')}>
             <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => copyLink(record.id)} />
           </Tooltip>
-          <Tooltip title="Tahrirlash">
+          <Tooltip title={t('admin.common.edit')}>
             <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           </Tooltip>
           <Popconfirm
-            title="Sertifikatni oʻchirish"
-            description="Bu QR-kod boʻyicha sertifikat koʻrinmay qoladi. Davom etilsinmi?"
-            okText="Ha, oʻchirish"
-            cancelText="Bekor qilish"
+            title={t('admin.certs.deleteTitle')}
+            description={t('admin.certs.deleteHint')}
+            okText={t('admin.certs.yesDelete')}
+            cancelText={t('admin.common.cancel')}
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDelete(record)}
           >
-            <Tooltip title="Oʻchirish">
+            <Tooltip title={t('admin.certs.tip.delete')}>
               <Button size="small" type="text" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
@@ -509,22 +511,22 @@ export const DashboardCertificatesPage = () => {
       <Row gutter={[16, 16]}>
         <Col xs={12} md={6}>
           <Card size="small">
-            <Statistic title="Jami sertifikatlar" value={stats.total} prefix={<FileProtectOutlined />} />
+            <Statistic title={t('admin.certs.statTotal')} value={stats.total} prefix={<FileProtectOutlined />} />
           </Card>
         </Col>
         <Col xs={12} md={6}>
           <Card size="small">
-            <Statistic title="Shu oyda berilgan" value={stats.thisMonth} />
+            <Statistic title={t('admin.certs.statMonth')} value={stats.thisMonth} />
           </Card>
         </Col>
         <Col xs={12} md={6}>
           <Card size="small">
-            <Statistic title="Hujjat turlari" value={stats.types} />
+            <Statistic title={t('admin.certs.statTypes')} value={stats.types} />
           </Card>
         </Col>
         <Col xs={12} md={6}>
           <Card size="small">
-            <Statistic title="Rasm biriktirilgan" value={stats.withPhoto} />
+            <Statistic title={t('admin.certs.statPhoto')} value={stats.withPhoto} />
           </Card>
         </Col>
       </Row>
@@ -532,12 +534,12 @@ export const DashboardCertificatesPage = () => {
       <Card
         title={
           <Title level={4} style={{ margin: 0 }}>
-            Sertifikatlar roʻyxati
+            {t('admin.certs.listTitle')}
           </Title>
         }
         extra={
           <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
-            Yangilash
+            {t('admin.common.refresh')}
           </Button>
         }
       >
@@ -546,7 +548,7 @@ export const DashboardCertificatesPage = () => {
             <Input.Search
               allowClear
               value={search}
-              placeholder="№, F.I.O. yoki kurs boʻyicha"
+              placeholder={t('admin.certs.searchPh')}
               onChange={(e) => setSearch(e.target.value)}
             />
           </Col>
@@ -555,7 +557,7 @@ export const DashboardCertificatesPage = () => {
               allowClear
               showSearch
               style={{ width: '100%' }}
-              placeholder="Foydalanuvchi boʻyicha"
+              placeholder={t('admin.certs.byUser')}
               value={userId}
               optionFilterProp="label"
               filterOption={false}
@@ -571,7 +573,7 @@ export const DashboardCertificatesPage = () => {
               allowClear
               showSearch
               style={{ width: '100%' }}
-              placeholder="Kurs boʻyicha"
+              placeholder={t('admin.certs.byCourse')}
               value={courseId}
               optionFilterProp="label"
               filterOption={false}
@@ -586,7 +588,7 @@ export const DashboardCertificatesPage = () => {
             <Select
               allowClear
               style={{ width: '100%' }}
-              placeholder="Hujjat turi"
+              placeholder={t('admin.certs.byType')}
               value={templateName}
               onChange={setTemplateName}
               options={typeOptions}
@@ -607,7 +609,7 @@ export const DashboardCertificatesPage = () => {
                   {filtered.length} / {items.length} ta natija
                 </Text>
                 <Button type="link" size="small" onClick={resetFilters}>
-                  Filtrlarni tozalash
+                  {t('admin.common.clearFilters')}
                 </Button>
               </Space>
             </Col>
@@ -619,19 +621,19 @@ export const DashboardCertificatesPage = () => {
           loading={loading}
           columns={columns}
           dataSource={filtered}
-          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t) => `Jami: ${t}` }}
+          pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (count) => t('admin.certs.total', { count }) }}
           scroll={{ x: 980 }}
         />
       </Card>
 
       {/* ---- Edit modal ---- */}
       <Modal
-        title="Sertifikatni tahrirlash"
+        title={t('admin.certs.editTitle')}
         open={!!editing}
         onCancel={closeEdit}
         onOk={saveEdit}
-        okText="Saqlash"
-        cancelText="Bekor qilish"
+        okText={t('admin.common.save')}
+        cancelText={t('admin.common.cancel')}
         okButtonProps={{ loading: saving }}
         width="min(760px, calc(100vw - 24px))"
         centered
@@ -651,8 +653,8 @@ export const DashboardCertificatesPage = () => {
           >
             <Avatar shape="square" size={64} src={editPhoto || undefined} icon={<UserOutlined />} style={{ borderRadius: 12 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>Rasm</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>QR skanerda koʻrinadigan rasm</Text>
+              <div style={{ fontWeight: 600 }}>{t('admin.certs.photo')}</div>
+              <Text type="secondary" style={{ fontSize: 12 }}>{t('admin.certs.photoHint')}</Text>
             </div>
             <Space>
               <ImgCrop rotationSlider aspect={3 / 4} modalTitle="Rasmni kesish">
@@ -662,7 +664,7 @@ export const DashboardCertificatesPage = () => {
                   showUploadList={false}
                   beforeUpload={(file) => {
                     if (!file.type.startsWith('image/')) {
-                      message.error('Faqat rasm');
+                      message.error(t('admin.common.imageOnly'));
                       return Upload.LIST_IGNORE;
                     }
                     if (file.size / 1024 / 1024 >= 5) {
@@ -674,7 +676,7 @@ export const DashboardCertificatesPage = () => {
                   }}
                 >
                   <Button icon={<UploadOutlined />} loading={photoUploading}>
-                    {editPhoto ? 'Almashtirish' : 'Yuklash'}
+                    {editPhoto ? t('admin.common.replace') : t('admin.common.upload')}
                   </Button>
                 </Upload>
               </ImgCrop>
@@ -686,12 +688,12 @@ export const DashboardCertificatesPage = () => {
 
           <Row gutter={12}>
             <Col xs={24} md={12}>
-              <Form.Item label="Hujjat turi">
-                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Свидетельство" />
+              <Form.Item label={t('admin.certs.docType')}>
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder={t('admin.certs.docType')} />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="№ (rag'am)">
+              <Form.Item label={t('admin.certs.serialPh')}>
                 <Input value={editSerial} onChange={(e) => setEditSerial(e.target.value)} placeholder="2456" />
               </Form.Item>
             </Col>
@@ -700,8 +702,7 @@ export const DashboardCertificatesPage = () => {
           {dateGroups.groups.length > 0 && (
             <>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Sanalar — kalendardan tanlang. Hujjatdagi yozilish uslubi (oy nomi, kun formati)
-                avtomatik saqlanadi:
+                {t('admin.certs.datesHint')}
               </Text>
               <Row gutter={12} style={{ marginTop: 8 }}>
                 {dateGroups.groups.map((group) => (
@@ -738,11 +739,11 @@ export const DashboardCertificatesPage = () => {
               <Form.Item
                 label={
                   <span>
-                    Dastur hajmi, soat{' '}
+                    {t('admin.certs.hoursLabel')}{' '}
                     <Text type="secondary" style={{ fontSize: 11 }}>({HOURS_KEY})</Text>
                   </span>
                 }
-                extra="Blankada chop etilmasa ham, tekshirish sahifasida koʻrinadi."
+                extra={t('admin.certs.hoursExtra')}
                 style={{ marginBottom: 12 }}
               >
                 <Input
@@ -750,15 +751,15 @@ export const DashboardCertificatesPage = () => {
                   onChange={(e) =>
                     setEditValues((prev) => ({ ...prev, [HOURS_KEY]: e.target.value }))
                   }
-                  placeholder="Masalan: 72"
-                  suffix={<Text type="secondary">soat</Text>}
+                  placeholder={t('admin.certs.hoursPh')}
+                  suffix={<Text type="secondary">{t('admin.certs.hoursUnit')}</Text>}
                 />
               </Form.Item>
             </Col>
           </Row>
 
           <Text type="secondary" style={{ fontSize: 12 }}>
-            Hujjat maydonlari (oʻzgartirilsa, yuklab olingan Word va tekshirish sahifasi yangilanadi):
+            {t('admin.certs.fieldsHint')}
           </Text>
           <Row gutter={12} style={{ marginTop: 8 }}>
             {plainKeys.map((key) => (
@@ -787,15 +788,15 @@ export const DashboardCertificatesPage = () => {
 
       {/* ---- QR download modal ---- */}
       <Modal
-        title="Sertifikat QR-kodi"
+        title={t('admin.certs.qrTitle')}
         open={!!qrCert}
         onCancel={() => setQrCert(null)}
         footer={[
           <Button key="close" onClick={() => setQrCert(null)}>
-            Yopish
+            {t('admin.common.close')}
           </Button>,
           <Button key="dl" type="primary" icon={<QrcodeOutlined />} onClick={downloadQrPng}>
-            PNG yuklab olish
+            {t('admin.certs.qrDownload')}
           </Button>,
         ]}
         centered

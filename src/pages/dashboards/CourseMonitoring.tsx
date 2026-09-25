@@ -55,6 +55,7 @@ import {
   type MonitoringSummaryDto,
 } from './monitoringApi.ts';
 import { getCourseSuggestions } from '../course/courseApi.ts';
+import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
 
 const { Text, Title } = Typography;
 
@@ -66,21 +67,24 @@ const formatDate = (value?: string | null) => {
   return parsed.isValid() ? parsed.format('DD.MM.YYYY HH:mm') : '-';
 };
 
-/** Compact Uzbek "time ago" without pulling in a dayjs locale plugin. */
-const relativeDate = (value?: string | null) => {
+// t передаётся параметром: хелперы живут вне компонента, хук там недоступен.
+type Translate = ReturnType<typeof useAppTranslation>['t'];
+
+/** Короткое «сколько времени назад» без locale-плагина dayjs. */
+const relativeDate = (value: string | null | undefined, t: Translate) => {
   if (!value) return '';
   const parsed = dayjs(value);
   if (!parsed.isValid()) return '';
   const diffMinutes = dayjs().diff(parsed, 'minute');
-  if (diffMinutes < 1) return 'hozirgina';
-  if (diffMinutes < 60) return `${diffMinutes} daqiqa oldin`;
+  if (diffMinutes < 1) return t('admin.mon.justNow');
+  if (diffMinutes < 60) return t('admin.mon.agoMinutes', { n: diffMinutes });
   const diffHours = dayjs().diff(parsed, 'hour');
-  if (diffHours < 24) return `${diffHours} soat oldin`;
+  if (diffHours < 24) return t('admin.mon.agoHours', { n: diffHours });
   const diffDays = dayjs().diff(parsed, 'day');
-  if (diffDays < 30) return `${diffDays} kun oldin`;
+  if (diffDays < 30) return t('admin.mon.agoDays', { n: diffDays });
   const diffMonths = dayjs().diff(parsed, 'month');
-  if (diffMonths < 12) return `${diffMonths} oy oldin`;
-  return `${dayjs().diff(parsed, 'year')} yil oldin`;
+  if (diffMonths < 12) return t('admin.mon.agoMonths', { n: diffMonths });
+  return t('admin.mon.agoYears', { n: dayjs().diff(parsed, 'year') });
 };
 
 const getStatusColor = (status: MonitoringStatus) => {
@@ -91,18 +95,18 @@ const getStatusColor = (status: MonitoringStatus) => {
   return 'warning';
 };
 
-const getStatusLabel = (status: MonitoringStatus) => {
-  if (status === 'IN_PROGRESS') return 'Jarayonda';
-  if (status === 'COMPLETED') return 'Tugallangan';
-  if (status === 'FAILED') return 'Muvaffaqiyatsiz';
-  if (status === 'LOCKED') return 'Yopiq';
-  return 'Boshlanmagan';
+const getStatusLabel = (status: MonitoringStatus, t: Translate) => {
+  if (status === 'IN_PROGRESS') return t('admin.mon.stInProgress');
+  if (status === 'COMPLETED') return t('admin.mon.stCompleted');
+  if (status === 'FAILED') return t('admin.mon.stFailed');
+  if (status === 'LOCKED') return t('admin.mon.closed');
+  return t('admin.mon.stNotStarted');
 };
 
-const getLessonTypeLabel = (type: MonitoringLessonType) => {
-  if (type === 'TEST') return 'Test';
-  if (type === 'DOCUMENT') return 'Material';
-  return 'Video dars';
+const getLessonTypeLabel = (type: MonitoringLessonType, t: Translate) => {
+  if (type === 'TEST') return t('admin.mon.typeTest');
+  if (type === 'DOCUMENT') return t('admin.mon.typeDoc');
+  return t('admin.mon.typeVideo');
 };
 
 const LessonTypeIcon = ({ type }: { type: MonitoringLessonType }) => {
@@ -189,6 +193,7 @@ const SummaryTile = ({ icon, label, value, hint, color, active, onClick }: Summa
 );
 
 export const DashboardCourseMonitoringPage = () => {
+  const { t } = useAppTranslation();
   const screens = Grid.useBreakpoint();
   const currentUser = useSelector((state: RootState) => state.auth.currentUser);
   const canDelete = Boolean(currentUser?.permissions?.monitoring?.includes('DELETE'));
@@ -234,11 +239,11 @@ export const DashboardCourseMonitoringPage = () => {
       setRows([]);
       setSummary(null);
       setPagination((current) => ({ ...current, total: 0 }));
-      message.error('Monitoring ma’lumotlarini yuklashda xatolik yuz berdi.');
+      message.error(t('admin.mon.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchMonitoring(1, pageSizeRef.current);
@@ -268,7 +273,7 @@ export const DashboardCourseMonitoringPage = () => {
       setDetail(payload);
     } catch {
       setDetail(null);
-      message.error('Batafsil ma’lumotni yuklashda xatolik yuz berdi.');
+      message.error(t('admin.mon.detailError'));
     } finally {
       setDetailLoading(false);
     }
@@ -277,11 +282,11 @@ export const DashboardCourseMonitoringPage = () => {
   const removeRow = async (row: MonitoringRowDto) => {
     try {
       await deleteMonitoring(row.userId, row.courseId);
-      message.success(`${row.userFullName} — progress o‘chirildi.`);
+      message.success(t('admin.mon.delOne', { name: row.userFullName }));
       const isLastOnPage = rows.length === 1 && pagination.current > 1;
       fetchMonitoring(isLastOnPage ? pagination.current - 1 : pagination.current, pagination.pageSize);
     } catch {
-      message.error('O‘chirishda xatolik yuz berdi.');
+      message.error(t('admin.mon.deleteError'));
     }
   };
 
@@ -295,9 +300,9 @@ export const DashboardCourseMonitoringPage = () => {
       );
       const failed = results.filter((r) => r.status === 'rejected').length;
       if (failed) {
-        message.warning(`${targets.length - failed} ta o‘chirildi, ${failed} tasida xatolik.`);
+        message.warning(t('admin.mon.delPartial', { done: targets.length - failed, failed }));
       } else {
-        message.success(`${targets.length} ta yozuv o‘chirildi.`);
+        message.success(t('admin.mon.delAll', { count: targets.length }));
       }
       fetchMonitoring(1, pagination.pageSize);
     } finally {
@@ -318,19 +323,19 @@ export const DashboardCourseMonitoringPage = () => {
       });
 
       const header = [
-        'F.I.Sh.',
-        'Email',
-        'Telefon',
-        'Kurs',
-        'Holat',
-        'Progress (%)',
-        'Darslar',
-        'Testlar',
-        'O‘rtacha ball',
-        'Oxirgi ball',
-        'Boshlagan sana',
-        'Oxirgi aktivlik',
-        'Tugatgan sana',
+        t('admin.mon.csvFullName'),
+        t('admin.common.email'),
+        t('admin.common.phone'),
+        t('admin.mon.colCourse'),
+        t('admin.common.status'),
+        t('admin.mon.csvProgress'),
+        t('admin.mon.csvLessons'),
+        t('admin.mon.csvTests'),
+        t('admin.mon.avgScore'),
+        t('admin.mon.csvLastScore'),
+        t('admin.mon.csvStarted'),
+        t('admin.mon.colLastActive'),
+        t('admin.mon.csvFinished'),
       ];
       const escapeCell = (value: string | number) => `"${String(value ?? '').replace(/"/g, '""')}"`;
       const lines = payload.list.map((row) =>
@@ -339,7 +344,7 @@ export const DashboardCourseMonitoringPage = () => {
           row.email,
           row.phoneNumber,
           row.courseTitle,
-          getStatusLabel(row.status),
+          getStatusLabel(row.status, t),
           row.progressPercent,
           `${row.completedLessonCount}/${row.totalLessonCount}`,
           `${row.solvedTestCount}/${row.totalTestCount}`,
@@ -360,9 +365,9 @@ export const DashboardCourseMonitoringPage = () => {
       link.download = `kurs-monitoring-${dayjs().format('YYYY-MM-DD_HH-mm')}.csv`;
       link.click();
       URL.revokeObjectURL(url);
-      message.success('Hisobot yuklab olindi.');
+      message.success(t('admin.mon.reportDone'));
     } catch {
-      message.error('Hisobotni tayyorlashda xatolik yuz berdi.');
+      message.error(t('admin.mon.reportError'));
     } finally {
       setExporting(false);
     }
@@ -371,7 +376,7 @@ export const DashboardCourseMonitoringPage = () => {
   const columns: TableProps<MonitoringRowDto>['columns'] = useMemo(() => {
     const base: TableProps<MonitoringRowDto>['columns'] = [
       {
-        title: 'O‘quvchi',
+        title: t('admin.mon.colStudent'),
         dataIndex: 'userFullName',
         key: 'userFullName',
         width: 260,
@@ -396,7 +401,7 @@ export const DashboardCourseMonitoringPage = () => {
         ),
       },
       {
-        title: 'Kurs',
+        title: t('admin.mon.colCourse'),
         dataIndex: 'courseTitle',
         key: 'courseTitle',
         width: 200,
@@ -407,18 +412,18 @@ export const DashboardCourseMonitoringPage = () => {
         ),
       },
       {
-        title: 'Holat',
+        title: t('admin.common.status'),
         dataIndex: 'status',
         key: 'status',
         width: 140,
         render: (value: MonitoringStatus) => (
           <Tag color={getStatusColor(value)} style={{ borderRadius: 999 }}>
-            {getStatusLabel(value)}
+            {getStatusLabel(value, t)}
           </Tag>
         ),
       },
       {
-        title: 'Progress',
+        title: t('admin.mon.progress'),
         dataIndex: 'progressPercent',
         key: 'progressPercent',
         width: 170,
@@ -435,7 +440,7 @@ export const DashboardCourseMonitoringPage = () => {
         },
       },
       {
-        title: 'Darslar / Testlar',
+        title: t('admin.mon.colLessons'),
         key: 'lessons',
         width: 150,
         render: (_, record) => (
@@ -452,22 +457,22 @@ export const DashboardCourseMonitoringPage = () => {
         ),
       },
       {
-        title: 'Ballar',
+        title: t('admin.mon.colScores'),
         key: 'scores',
         width: 130,
         render: (_, record) => (
           <Space direction="vertical" size={2}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              O‘rtacha: <Text strong>{record.averageScore ?? '-'}%</Text>
+              {t('admin.mon.avgColon')} <Text strong>{record.averageScore ?? '-'}%</Text>
             </Text>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Oxirgi: <Text strong>{record.lastScore ?? '-'}%</Text>
+              {t('admin.mon.lastColon')} <Text strong>{record.lastScore ?? '-'}%</Text>
             </Text>
           </Space>
         ),
       },
       {
-        title: 'Joriy bosqich',
+        title: t('admin.mon.colStage'),
         key: 'current',
         width: 230,
         render: (_, record) => (
@@ -486,7 +491,7 @@ export const DashboardCourseMonitoringPage = () => {
         ),
       },
       {
-        title: 'Oxirgi aktivlik',
+        title: t('admin.mon.colLastActive'),
         dataIndex: 'lastActivityAt',
         key: 'lastActivityAt',
         width: 170,
@@ -494,9 +499,9 @@ export const DashboardCourseMonitoringPage = () => {
           <Tooltip title={value ? dayjs(value).format('DD.MM.YYYY HH:mm:ss') : ''}>
             <Space direction="vertical" size={0}>
               <Text style={{ fontSize: 13 }}>{formatDate(value)}</Text>
-              {relativeDate(value) ? (
+              {relativeDate(value, t) ? (
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  {relativeDate(value)}
+                  {relativeDate(value, t)}
                 </Text>
               ) : null}
             </Space>
@@ -504,22 +509,22 @@ export const DashboardCourseMonitoringPage = () => {
         ),
       },
       {
-        title: 'Amallar',
+        title: t('admin.common.actions'),
         key: 'actions',
         width: canDelete ? 150 : 110,
         fixed: screens.lg ? 'right' : undefined,
         render: (_, record) => (
           <Space size={4} onClick={(e) => e.stopPropagation()}>
             <Button size="small" onClick={() => openDetail(record)}>
-              Batafsil
+              {t('admin.common.details')}
             </Button>
             {canDelete ? (
               <Popconfirm
-                title="Progressni o‘chirish"
-                description="Ushbu o‘quvchining shu kursdagi butun progressi o‘chiriladi."
-                okText="O‘chirish"
+                title={t('admin.mon.delTitle')}
+                description={t('admin.mon.delHint')}
+                okText={t('admin.common.delete')}
                 okButtonProps={{ danger: true }}
-                cancelText="Bekor"
+                cancelText={t('admin.common.cancelShort')}
                 onConfirm={() => removeRow(record)}
               >
                 <Button size="small" danger icon={<DeleteOutlined />} />
@@ -536,19 +541,19 @@ export const DashboardCourseMonitoringPage = () => {
   return (
     <div>
       <Helmet>
-        <title>Monitoring | Admin panel</title>
+        <title>{t('admin.mon.pageTitle')}</title>
       </Helmet>
 
       <AdminPageFrame
-        eyebrow="O‘quv jarayoni"
-        title="Kurs monitoringi"
-        subtitle="O‘quvchilarning kurs bo‘yicha holati, progressi va test natijalarini yagona oynadan kuzating."
+        eyebrow={t('admin.mon.eyebrow')}
+        title={t('admin.mon.title')}
+        subtitle={t('admin.mon.subtitle')}
       >
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<TeamOutlined />}
-              label="Jami yozilishlar"
+              label={t('admin.mon.statTotal')}
               value={summary?.total ?? 0}
               hint="O‘quvchi–kurs juftliklari"
               color="#1d4ed8"
@@ -559,7 +564,7 @@ export const DashboardCourseMonitoringPage = () => {
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<ClockCircleOutlined />}
-              label="Boshlanmagan"
+              label={t('admin.mon.stNotStarted')}
               value={summary?.notStartedCount ?? 0}
               color="#f59e0b"
               active={status === 'NOT_STARTED'}
@@ -569,7 +574,7 @@ export const DashboardCourseMonitoringPage = () => {
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<SyncOutlined />}
-              label="Jarayonda"
+              label={t('admin.mon.stInProgress')}
               value={summary?.inProgressCount ?? 0}
               color="#0ea5e9"
               active={status === 'IN_PROGRESS'}
@@ -579,7 +584,7 @@ export const DashboardCourseMonitoringPage = () => {
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<CheckCircleOutlined />}
-              label="Tugallangan"
+              label={t('admin.mon.stCompleted')}
               value={summary?.completedCount ?? 0}
               color="#16a34a"
               active={status === 'COMPLETED'}
@@ -589,7 +594,7 @@ export const DashboardCourseMonitoringPage = () => {
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<CloseCircleOutlined />}
-              label="Muvaffaqiyatsiz"
+              label={t('admin.mon.stFailed')}
               value={summary?.failedCount ?? 0}
               color="#dc2626"
               active={status === 'FAILED'}
@@ -599,7 +604,7 @@ export const DashboardCourseMonitoringPage = () => {
           <Col xs={12} md={8} xl={4}>
             <SummaryTile
               icon={<RiseOutlined />}
-              label="O‘rtacha progress"
+              label={t('admin.mon.avgProgress')}
               value={`${summary?.averageProgress ?? 0}%`}
               hint="Joriy filter bo‘yicha"
               color="#7c3aed"
@@ -614,20 +619,20 @@ export const DashboardCourseMonitoringPage = () => {
                 <Text strong>{selectedRowKeys.length} ta tanlandi</Text>
                 {canDelete ? (
                   <Popconfirm
-                    title="Tanlanganlarni o‘chirish"
-                    description={`${selectedRowKeys.length} ta o‘quvchining progressi o‘chiriladi.`}
-                    okText="O‘chirish"
+                    title={t('admin.mon.deleteSelected')}
+                    description={`${t('admin.mon.delBulkHint', { count: selectedRowKeys.length })}`}
+                    okText={t('admin.common.delete')}
                     okButtonProps={{ danger: true }}
-                    cancelText="Bekor"
+                    cancelText={t('admin.common.cancelShort')}
                     onConfirm={removeSelected}
                   >
                     <Button danger size="small" icon={<DeleteOutlined />} loading={deleting}>
-                      O‘chirish
+                      {t('admin.common.delete')}
                     </Button>
                   </Popconfirm>
                 ) : null}
                 <Button size="small" type="text" onClick={() => setSelectedRowKeys([])}>
-                  Bekor qilish
+                  {t('admin.common.cancel')}
                 </Button>
               </Space>
             ) : (
@@ -639,7 +644,7 @@ export const DashboardCourseMonitoringPage = () => {
               <Select
                 allowClear
                 showSearch
-                placeholder="Kurs bo‘yicha filter"
+                placeholder={t('admin.mon.courseFilter')}
                 value={courseId}
                 onChange={(value) => setCourseId(value || undefined)}
                 options={courseOptions}
@@ -647,14 +652,14 @@ export const DashboardCourseMonitoringPage = () => {
                 style={{ width: 220 }}
               />
               <Input.Search
-                placeholder="Ism, email yoki telefon"
+                placeholder={t('admin.mon.search')}
                 allowClear
                 value={searchTerm}
                 onChange={(event) => handleSearchChange(event.target.value)}
                 onSearch={() => fetchMonitoring(1, pagination.pageSize)}
                 style={{ width: 260, maxWidth: '100%' }}
               />
-              <Tooltip title="Yangilash">
+              <Tooltip title={t('admin.common.refresh')}>
                 <Button
                   icon={<ReloadOutlined />}
                   onClick={() => fetchMonitoring(pagination.current, pagination.pageSize)}
@@ -672,12 +677,12 @@ export const DashboardCourseMonitoringPage = () => {
               onChange={(value) => setStatus(value as 'ALL' | MonitoringStatus)}
               style={{ marginBottom: 16 }}
               options={[
-                { label: 'Barchasi', value: 'ALL', icon: <TeamOutlined /> },
-                { label: 'Boshlanmagan', value: 'NOT_STARTED', icon: <ClockCircleOutlined /> },
-                { label: 'Jarayonda', value: 'IN_PROGRESS', icon: <SyncOutlined /> },
-                { label: 'Tugallangan', value: 'COMPLETED', icon: <CheckCircleOutlined /> },
-                { label: 'Muvaffaqiyatsiz', value: 'FAILED', icon: <CloseCircleOutlined /> },
-                { label: 'Yopiq', value: 'LOCKED', icon: <LockOutlined /> },
+                { label: t('admin.common.all'), value: 'ALL', icon: <TeamOutlined /> },
+                { label: t('admin.mon.stNotStarted'), value: 'NOT_STARTED', icon: <ClockCircleOutlined /> },
+                { label: t('admin.mon.stInProgress'), value: 'IN_PROGRESS', icon: <SyncOutlined /> },
+                { label: t('admin.mon.stCompleted'), value: 'COMPLETED', icon: <CheckCircleOutlined /> },
+                { label: t('admin.mon.stFailed'), value: 'FAILED', icon: <CloseCircleOutlined /> },
+                { label: t('admin.mon.closed'), value: 'LOCKED', icon: <LockOutlined /> },
               ]}
             />
           ) : null}
@@ -705,7 +710,7 @@ export const DashboardCourseMonitoringPage = () => {
               ...pagination,
               showSizeChanger: true,
               pageSizeOptions: [10, 20, 50, 100],
-              showTotal: (total) => `Jami: ${total} ta yozuv`,
+              showTotal: (total) => t('admin.mon.total', { count: total }),
             }}
             onChange={(nextPagination) =>
               fetchMonitoring(
@@ -737,39 +742,39 @@ export const DashboardCourseMonitoringPage = () => {
               size="small"
               bordered
               items={[
-                { key: 'course', label: 'Kurs', children: detail.courseTitle },
+                { key: 'course', label: t('admin.mon.colCourse'), children: detail.courseTitle },
                 {
                   key: 'status',
-                  label: 'Holat',
+                  label: t('admin.common.status'),
                   children: (
                     <Tag color={getStatusColor(detail.status)} style={{ borderRadius: 999 }}>
-                      {getStatusLabel(detail.status)}
+                      {getStatusLabel(detail.status, t)}
                     </Tag>
                   ),
                 },
                 {
                   key: 'contact',
-                  label: 'Aloqa',
+                  label: t('admin.mon.contact'),
                   children: [detail.email, detail.phoneNumber].filter(Boolean).join(' • ') || '-',
                 },
                 {
                   key: 'avg',
-                  label: 'O‘rtacha ball',
+                  label: t('admin.mon.avgScore'),
                   children: detail.averageScore != null ? `${detail.averageScore}%` : '-',
                 },
-                { key: 'started', label: 'Boshlagan', children: formatDate(detail.startedAt) },
+                { key: 'started', label: t('admin.mon.started'), children: formatDate(detail.startedAt) },
                 {
                   key: 'activity',
-                  label: 'Oxirgi aktivlik',
+                  label: t('admin.mon.colLastActive'),
                   children: formatDate(detail.lastActivityAt),
                 },
-                { key: 'completed', label: 'Tugatgan', children: formatDate(detail.completedAt) },
+                { key: 'completed', label: t('admin.mon.finished'), children: formatDate(detail.completedAt) },
               ]}
             />
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text type="secondary">Umumiy progress</Text>
+                <Text type="secondary">{t('admin.mon.overallProgress')}</Text>
                 <Text strong>{detail.progressPercent}%</Text>
               </div>
               <Progress
@@ -792,7 +797,7 @@ export const DashboardCourseMonitoringPage = () => {
                         {index + 1}. {module.title}
                       </Text>
                       <Tag color={getStatusColor(module.status)} style={{ borderRadius: 999 }}>
-                        {getStatusLabel(module.status)}
+                        {getStatusLabel(module.status, t)}
                       </Tag>
                       <Text type="secondary">{module.progressPercent}%</Text>
                     </Space>
@@ -817,7 +822,7 @@ export const DashboardCourseMonitoringPage = () => {
                                   {lesson.title}
                                 </Text>
                                 <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {getLessonTypeLabel(lesson.type)}
+                                  {getLessonTypeLabel(lesson.type, t)}
                                   {lesson.completedAt ? ` • ${formatDate(lesson.completedAt)}` : ''}
                                 </Text>
                               </Space>
@@ -830,24 +835,24 @@ export const DashboardCourseMonitoringPage = () => {
                                 color={getStatusColor(lesson.status)}
                                 style={{ borderRadius: 999, margin: 0 }}
                               >
-                                {getStatusLabel(lesson.status)}
+                                {getStatusLabel(lesson.status, t)}
                               </Tag>
                             </Space>
                           </div>
                         ))
                       ) : (
-                        <Text type="secondary">Bu modulda darslar yo‘q</Text>
+                        <Text type="secondary">{t('admin.mon.noLessons')}</Text>
                       )}
                     </Space>
                   ),
                 }))}
               />
             ) : (
-              <Empty description="Kurs tarkibi topilmadi" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Empty description={t('admin.mon.noStructure')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
             )}
           </Space>
         ) : (
-          <Empty description="Ma’lumot topilmadi" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Empty description={t('admin.common.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
         )}
       </Drawer>
     </div>

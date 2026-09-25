@@ -9,7 +9,8 @@ export const useAppTranslation = () => {
   return useMemo(
     () => ({
       language,
-      t: (key: Parameters<typeof translate>[1]) => translate(language, key),
+      t: (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) =>
+        translate(language, key, params),
     }),
     [language]
   );
