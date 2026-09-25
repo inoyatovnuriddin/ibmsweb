@@ -151,7 +151,7 @@ export default function CertificateBasicTemplate1Form() {
           organizationName: ORGANIZATIONS[0],
           trainingPeriod: [dayjs('2025-03-14'), dayjs('2025-05-04')],
           protocolDate: dayjs('2023-04-06'),
-          issueDate: dayjs('2023-04-07'),
+          issueDate: dayjs(),
         }}
       >
         <Row gutter={16}>

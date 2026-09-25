@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Image, Modal, Result, Spin } from 'antd';
 import {
-  CheckCircleFilled,
   ExportOutlined,
   FileProtectOutlined,
   SafetyCertificateOutlined,
@@ -20,19 +19,102 @@ const LICENSE_PDF_URL = new URL('../../assets/lit.pdf', import.meta.url).href;
 
 type Values = Record<string, string>;
 
+/**
+ * В бланках пустые места напечатаны прочерками ("______", "—"). В сохранённых
+ * значениях они приходят как обычный текст, поэтому считаем их пустыми — иначе
+ * на странице появляются строки из подчёркиваний.
+ */
+const isFiller = (s: string): boolean => !s || /^[\s_\-–—.·]+$/.test(s);
+
+/**
+ * Подписи (директор, председатель комиссии, инспектор) на странице проверки не
+ * показываем — в документе они стоят от руки.
+ */
+const SIGNATURE_KEYS = new Set([
+  'CHAIRMANRU',
+  'CHAIRMANUZ',
+  'CEORU',
+  'CEOUZ',
+  'DIRECTOR',
+  'INSPECTOR',
+]);
+
+/** Эти значения уже выведены в шапке страницы, повторять их в таблице не нужно. */
+const HEADER_KEYS = new Set([
+  'FULLNAME_RU',
+  'FULLNAME_UZ',
+  'FULLNAME_EN',
+  'REG_NO',
+  'ORG_NAME',
+  'CER_TYPE',
+]);
+
+/**
+ * Подписи для значений, которые не попали ни в одно поле своего шаблона
+ * (например, новый плейсхолдер на бэкенде). Ключа нет в списке — покажем сам ключ,
+ * лишь бы данные не пропали со страницы.
+ */
+const KEY_LABELS: Record<string, string> = {
+  PROFESSION_RU: 'Специальность',
+  PROFESSION_UZ: 'Специальность',
+  PROFESSION_EN: 'Специальность',
+  COURSE_NAME: 'Курс',
+  QUALIFICATION: 'Квалификация (разряд)',
+  GRADE: 'Разряд',
+  EQUIPMENT: 'Допуск к обслуживанию',
+  ELEC_GROUP: 'Группа по электробезопасности',
+  VOLTAGE: 'Напряжение',
+  ROLE: 'Должность',
+  STUDY_FORM: 'Форма обучения',
+  STUDY_PERIOD: 'Период обучения',
+  HOURS: 'Объём программы',
+  HT: 'Теоретическое обучение',
+  HP: 'Производственное обучение',
+  MT: 'Оценка — теоретическое обучение',
+  MP: 'Оценка — пробная работа',
+  COMB: 'Квалификационная комиссия',
+  ORG_CITY: 'Город (область, район)',
+  PRT: 'Протокол №',
+  DATE_FROM: 'Начало обучения',
+  DATE_TO: 'Окончание обучения',
+  ISSUE_DATE: 'Дата выдачи',
+};
+
+/**
+ * Ключи, к которым обратились при сборке вида. По ним в конце находим значения,
+ * которые ни одно поле не показало, — со страницы не должно пропасть ни одно поле.
+ */
+let readKeys: Set<string> | null = null;
+
+/**
+ * Первое непустое значение из перечисленных ключей. Помечаем прочитанными ВСЕ
+ * ключи, а не только совпавший: запасные варианты (PROFESSION_UZ при наличии
+ * PROFESSION_RU) — это то же самое поле, и дублировать их внизу не нужно.
+ */
 const V = (values: Values, ...keys: string[]): string => {
+  let found = '';
   for (const key of keys) {
+    readKeys?.add(key);
+    if (found) continue;
     const raw = values[key];
-    if (raw != null && String(raw).trim()) return String(raw).trim();
+    if (raw == null) continue;
+    const trimmed = String(raw).trim();
+    if (trimmed && !isFiller(trimmed)) found = trimmed;
   }
-  return '';
+  return found;
+};
+
+/** Год с сокращением: "2026 г.". Пустая строка, если года нет. */
+const yearOf = (values: Values, key: string): string => {
+  const y = V(values, key);
+  return y ? `${y} г.` : '';
 };
 
 /** Join the "day / month-name / year" fragments the templates store separately into one label. */
 const composeDate = (day?: string, month?: string, year?: string): string => {
   const parts = [day, month, year]
     .map((p) => (p == null ? '' : String(p).trim()))
-    .filter(Boolean);
+    .filter((p) => p && !isFiller(p));
   return parts.length >= 2 ? parts.join(' ') : '';
 };
 
@@ -50,30 +132,22 @@ interface DetailRow {
   value: string;
 }
 
-interface Signatory {
-  label: string;
-  value: string;
-}
-
 interface TemplateView {
   /** Название типа документа на странице (не зависит от того, что ввёл админ). */
   docLabel: string;
   /** Подзаголовок под названием документа. */
   docSub: string;
   rows: DetailRow[];
-  signatories: Signatory[];
 }
 
 class RowBuilder {
   rows: DetailRow[] = [];
   add(label: string, value: string): this {
-    if (value && value.trim()) this.rows.push({ label, value: value.trim() });
+    const v = value ? value.trim() : '';
+    if (v && !isFiller(v)) this.rows.push({ label, value: v });
     return this;
   }
 }
-
-const sign = (label: string, value: string): Signatory[] =>
-  value && value.trim() ? [{ label, value: value.trim() }] : [];
 
 const asGradeRu = (raw: string) => (/^\d+$/.test(raw) ? `${raw}-разряд` : raw);
 
@@ -103,11 +177,14 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
   const v = data.values || {};
 
   switch (data.templateCode) {
-    // ГУВОҲНОМА / УДОСТОВЕРЕНИЕ о переподготовке и повышении квалификации
-    case 'template1': {
-      const from = composeDate(v.DFD, V(v, 'DFMR', 'DFMU'), v.DFY);
-      const to = composeDate(v.DTD, V(v, 'DTMR', 'DTMU'), v.DTY);
-      const issue = composeDate(undefined, V(v, 'ISMR', 'ISMU'), v.ISY && `${v.ISY} г.`);
+    // ГУВОҲНОМА / УДОСТОВЕРЕНИЕ о переподготовке и повышении квалификации.
+    // template8 — тот же документ на другом бланке (стропальщик) с теми же плейсхолдерами:
+    // учебный центр приходит в CER_TYPE, года начала обучения (DFY) в бланке нет.
+    case 'template1':
+    case 'template8': {
+      const from = composeDate(V(v, 'DFD'), V(v, 'DFMR', 'DFMU'), V(v, 'DFY'));
+      const to = composeDate(V(v, 'DTD'), V(v, 'DTMR', 'DTMU'), V(v, 'DTY'));
+      const issue = composeDate('', V(v, 'ISMR', 'ISMU'), yearOf(v, 'ISY'));
       const b = new RowBuilder()
         .add('Специальность', V(v, 'PROFESSION_RU', 'PROFESSION_UZ'))
         .add('Разряд', asGradeRu(V(v, 'GRADE')))
@@ -116,13 +193,10 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         .add('Протокол комиссии №', V(v, 'PRT'))
         .add('Дата выдачи', issue);
       return {
-        docLabel: 'Удостоверение',
+        // Бланк template8 озаглавлен по-узбекски — GUVOHNOMA, template1 — Удостоверение.
+        docLabel: data.templateCode === 'template8' ? 'Guvohnoma' : 'Удостоверение',
         docSub: 'о переподготовке и повышении квалификации',
         rows: b.rows,
-        signatories: [
-          ...sign('Председатель комиссии', V(v, 'CHAIRMANRU', 'CHAIRMANUZ')),
-          ...sign('Руководитель учебного заведения', V(v, 'CEORU', 'CEOUZ')),
-        ],
       };
     }
 
@@ -132,33 +206,54 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         .add('Курс', V(v, 'COURSE_NAME'))
         .add('Объём программы', asHours(V(v, 'HOURS')))
         .add('Период обучения', period(V(v, 'DATE_FROM'), V(v, 'DATE_TO')))
-        .add('Учебный центр', 'НОУ «Buxoro O‘quv»')
+        .add('Учебный центр', V(v, 'ORG_NAME', 'CER_TYPE') || 'НОУ «Buxoro O‘quv»')
         .add('Дата выдачи', V(v, 'ISSUE_DATE'));
       return {
         docLabel: 'Сертификат',
         docSub: 'о повышении квалификации',
         rows: b.rows,
-        signatories: sign('Исполнительный директор', V(v, 'DIRECTOR')),
       };
     }
 
     // ДИПЛОМ (RU + EN) о переподготовке и повышении квалификации
     case 'template3': {
       const prt = V(v, 'PRT');
-      const prtDate = V(v, 'PRTDR'); // "от 06 апреля 2023г."
+      const prtDate = V(v, 'PRTDR', 'PRTDE'); // "от 06 апреля 2023г."
       const b = new RowBuilder()
         .add('Квалификация', V(v, 'PROFESSION_RU', 'PROFESSION_EN'))
         .add('Разряд', asGradeRu(V(v, 'GRADE')))
         .add('Учебный центр', V(v, 'ORG_NAME'))
         .add('Период обучения', period(V(v, 'DATE_FROM'), V(v, 'DATE_TO')))
         .add('Протокол комиссии', prt && `№ ${prt}${prtDate ? ` ${prtDate}` : ''}`)
-        .add('Дата выдачи', V(v, 'ISYR'));
+        .add('Дата выдачи', V(v, 'ISYR', 'ISYE'));
       return {
         docLabel: 'Диплом',
         docSub: 'о переподготовке и повышении квалификации',
         rows: b.rows,
-        // Подписи в этом шаблоне не заполняются (мастер/директор подписывают от руки).
-        signatories: [],
+      };
+    }
+
+    // УДОСТОВЕРЕНИЕ о допуске к обслуживанию оборудования — даты выдачи
+    // в этом бланке нет, основание — протокол квалификационной комиссии.
+    case 'template4': {
+      const from = composeDate(V(v, 'DFD'), V(v, 'DFMR'), yearOf(v, 'DFY'));
+      const to = composeDate(V(v, 'DTD'), V(v, 'DTMR'), yearOf(v, 'DTY'));
+      const prt = V(v, 'PRT');
+      const prtDate = composeDate(V(v, 'PRTD'), V(v, 'PRTM'), yearOf(v, 'PRTY'));
+      const b = new RowBuilder()
+        .add('Курс', V(v, 'COURSE_NAME'))
+        .add('Допуск к обслуживанию', V(v, 'EQUIPMENT'))
+        .add('Учебный центр', V(v, 'ORG_NAME'))
+        .add('Город (область, район)', V(v, 'ORG_CITY'))
+        .add('Период обучения', period(from, to))
+        .add(
+          'Протокол квалификационной комиссии',
+          prt && `№ ${prt}${prtDate ? ` от ${prtDate}` : ''}`
+        );
+      return {
+        docLabel: 'Удостоверение',
+        docSub: 'о допуске к обслуживанию оборудования',
+        rows: b.rows,
       };
     }
 
@@ -182,26 +277,23 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         docLabel: 'Удостоверение',
         docSub: 'о проверке знаний ПТЭ и ПТБ электроустановок',
         rows: b.rows,
-        signatories: [
-          ...sign('Председатель квалификационной комиссии', V(v, 'CHAIRMANRU')),
-          ...sign('Директор', V(v, 'DIRECTOR')),
-        ],
       };
     }
 
     // СВИДЕТЕЛЬСТВО о присвоении профессии — разряда здесь нет,
     // GRADE в этом бланке означает «класс / категория».
     case 'template6': {
-      const from = composeDate(v.DFD, v.DFMR, v.DFY && `${v.DFY} г.`);
-      const to = composeDate(v.DTD, v.DTMR, v.DTY && `${v.DTY} г.`);
-      const commission = composeDate(v.COMD, v.COMM, v.COMY && `${v.COMY} г.`);
+      const from = composeDate(V(v, 'DFD'), V(v, 'DFMR'), yearOf(v, 'DFY'));
+      const to = composeDate(V(v, 'DTD'), V(v, 'DTMR'), yearOf(v, 'DTY'));
+      const commission = composeDate(V(v, 'COMD'), V(v, 'COMM'), yearOf(v, 'COMY'));
       const prt = V(v, 'PRT');
-      const issue = composeDate(v.ISDAY, v.ISMON, v.ISY && `${v.ISY} г.`);
+      const issue = composeDate(V(v, 'ISDAY'), V(v, 'ISMON'), yearOf(v, 'ISY'));
       const b = new RowBuilder()
         .add('Профессия', V(v, 'PROFESSION_RU'))
         .add('Класс / категория', V(v, 'GRADE'))
         .add('Форма обучения', capitalize(V(v, 'STUDY_FORM')))
         .add('Предприятие (учебный центр)', V(v, 'ORG_NAME'))
+        .add('Квалификационная комиссия', V(v, 'COMB'))
         .add('Период обучения', period(from, to))
         .add('Теоретическое обучение', asHours(V(v, 'HT')))
         .add('Производственное обучение', asHours(V(v, 'HP')))
@@ -216,10 +308,6 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         docLabel: 'Свидетельство',
         docSub: 'о присвоении профессии',
         rows: b.rows,
-        signatories: [
-          ...sign('Председатель квалификационной комиссии', V(v, 'CHAIRMANRU')),
-          ...sign('Руководитель организации', V(v, 'CEORU')),
-        ],
       };
     }
 
@@ -227,11 +315,11 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
     // как свидетельство, но с разрядом и подписью инспектора Госкомитета
     // промышленной безопасности.
     case 'template9': {
-      const from = composeDate(v.DFD, v.DFMR, v.DFY && `${v.DFY} г.`);
-      const to = composeDate(v.DTD, v.DTMR, v.DTY && `${v.DTY} г.`);
-      const commission = composeDate(v.COMD, v.COMM, v.COMY && `${v.COMY} г.`);
+      const from = composeDate(V(v, 'DFD'), V(v, 'DFMR'), yearOf(v, 'DFY'));
+      const to = composeDate(V(v, 'DTD'), V(v, 'DTMR'), yearOf(v, 'DTY'));
+      const commission = composeDate(V(v, 'COMD'), V(v, 'COMM'), yearOf(v, 'COMY'));
       const prt = V(v, 'PRT');
-      const issue = composeDate(v.ISDAY, v.ISMON, v.ISY && `${v.ISY} г.`);
+      const issue = composeDate(V(v, 'ISDAY'), V(v, 'ISMON'), yearOf(v, 'ISY'));
       const orgName = V(v, 'ORG_NAME');
       const b = new RowBuilder()
         .add('Профессия', V(v, 'PROFESSION_RU'))
@@ -252,18 +340,13 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         docLabel: 'Удостоверение',
         docSub: 'о присвоении тарифно-квалификационного разряда',
         rows: b.rows,
-        signatories: [
-          ...sign('Председатель квалификационной комиссии', V(v, 'CHAIRMANRU')),
-          ...sign('Инспектор Госкомитета промышленной безопасности', V(v, 'INSPECTOR')),
-          ...sign('Руководитель организации', V(v, 'CEORU')),
-        ],
       };
     }
 
     // УДОСТОВЕРЕНИЕ о прохождении обучения по профессии —
     // с присвоенной квалификацией (разрядом) и допуском к обслуживанию оборудования.
     case 'template7': {
-      const issue = composeDate(v.ISD, V(v, 'ISMR', 'ISM'), v.ISY && `${v.ISY} г.`);
+      const issue = composeDate(V(v, 'ISD'), V(v, 'ISMR', 'ISM'), yearOf(v, 'ISY'));
       const b = new RowBuilder()
         .add('Профессия', V(v, 'PROFESSION_RU'))
         .add('Квалификация (разряд)', asGradeRu(V(v, 'QUALIFICATION')))
@@ -275,18 +358,16 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         docLabel: 'Удостоверение',
         docSub: 'о прохождении обучения',
         rows: b.rows,
-        // Подписи в этом бланке ставятся от руки (личная подпись / председатель комиссии).
-        signatories: [],
       };
     }
 
     // УДОСТОВЕРЕНИЕ членов ДГСД — допуск к работам в газовзрывоопасной среде.
     case 'template10': {
-      const from = composeDate(v.DFD, v.DFMR, v.DFY && `${v.DFY} г.`);
-      const to = composeDate(v.DTD, v.DTMR, v.DTY && `${v.DTY} г.`);
+      const from = composeDate(V(v, 'DFD'), V(v, 'DFMR'), yearOf(v, 'DFY'));
+      const to = composeDate(V(v, 'DTD'), V(v, 'DTMR'), yearOf(v, 'DTY'));
       const prt = V(v, 'PRT');
-      const prtDate = composeDate(v.PRTD, v.PRTM, v.PRTY && `${v.PRTY} г.`);
-      const issue = composeDate(v.ISD, v.ISMR, v.ISY && `${v.ISY} г.`);
+      const prtDate = composeDate(V(v, 'PRTD'), V(v, 'PRTM'), yearOf(v, 'PRTY'));
+      const issue = composeDate(V(v, 'ISD'), V(v, 'ISMR'), yearOf(v, 'ISY'));
       const orgName = V(v, 'ORG_NAME', 'CER_TYPE');
       const b = new RowBuilder()
         .add('Курс', V(v, 'COURSE_NAME'))
@@ -304,7 +385,6 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
         docLabel: 'Удостоверение',
         docSub: 'о допуске к работам в газовзрывоопасной среде',
         rows: b.rows,
-        signatories: [], // председатель комиссии и директор подписывают от руки
       };
     }
 
@@ -315,28 +395,61 @@ function buildTemplateView(data: CertificateVerification): TemplateView | null {
 
 /**
  * Запасной вариант для шаблонов, которых нет в списке выше (новые .docx,
- * добавленные на бэкенд без изменения фронта): показываем только базовые
- * поля, которые точно есть в сохранённых значениях.
+ * добавленные на бэкенд без изменения фронта): показываем базовые поля,
+ * а всё остальное подхватит {@link leftoverRows}.
  */
 function buildGenericView(data: CertificateVerification): TemplateView {
   const v = data.values || {};
+  // Даты в разных бланках хранятся либо целиком (DATE_FROM), либо по частям
+  // (день / месяц / год) — собираем оба варианта, чтобы не потерять период обучения.
+  const from =
+    V(v, 'DATE_FROM') || composeDate(V(v, 'DFD'), V(v, 'DFMR', 'DFMU'), yearOf(v, 'DFY'));
+  const to = V(v, 'DATE_TO') || composeDate(V(v, 'DTD'), V(v, 'DTMR', 'DTMU'), yearOf(v, 'DTY'));
+  const issue =
+    V(v, 'ISSUE_DATE') ||
+    composeDate(V(v, 'ISD', 'ISDAY'), V(v, 'ISMR', 'ISMU', 'ISMON'), yearOf(v, 'ISY')) ||
+    formatIso(data.issuedAt);
   const b = new RowBuilder()
     .add('Специальность', V(v, 'PROFESSION_RU', 'PROFESSION_UZ', 'PROFESSION_EN'))
+    .add('Разряд', asGradeRu(V(v, 'GRADE')))
     .add('Курс', V(v, 'COURSE_NAME'))
+    .add('Допуск к обслуживанию', V(v, 'EQUIPMENT'))
     .add('Учебный центр', V(v, 'ORG_NAME', 'CER_TYPE'))
-    .add('Период обучения', period(V(v, 'DATE_FROM'), V(v, 'DATE_TO')))
+    .add('Период обучения', period(from, to))
     .add('Протокол №', V(v, 'PRT'))
-    .add('Дата выдачи', V(v, 'ISSUE_DATE') || formatIso(data.issuedAt));
+    .add('Дата выдачи', issue);
   return {
     docLabel: data.templateName || 'Документ',
     docSub: 'о прохождении обучения',
     rows: b.rows,
-    signatories: [
-      ...sign('Председатель комиссии', V(v, 'CHAIRMANRU', 'CHAIRMANUZ')),
-      ...sign('Директор', V(v, 'DIRECTOR')),
-      ...sign('Руководитель', V(v, 'CEORU', 'CEOUZ')),
-    ],
   };
+}
+
+/**
+ * Значения, которые не показало ни одно поле шаблона: новый плейсхолдер на
+ * бэкенде или поле, которого нет в описании выше. Выводим их в конце, чтобы со
+ * страницы не пропало ни одно сохранённое поле. Подписи и то, что уже есть в
+ * шапке, пропускаем.
+ */
+function leftoverRows(values: Values, read: Set<string>): DetailRow[] {
+  const b = new RowBuilder();
+  for (const key of Object.keys(values)) {
+    if (read.has(key) || SIGNATURE_KEYS.has(key) || HEADER_KEYS.has(key)) continue;
+    b.add(KEY_LABELS[key] || key, V(values, key));
+  }
+  return b.rows;
+}
+
+/** Вид документа + значения, которые шаблон не показал. */
+function buildView(data: CertificateVerification): TemplateView {
+  readKeys = new Set<string>();
+  try {
+    const view = buildTemplateView(data) || buildGenericView(data);
+    const extra = leftoverRows(data.values || {}, readKeys);
+    return extra.length ? { ...view, rows: [...view.rows, ...extra] } : view;
+  } finally {
+    readKeys = null;
+  }
 }
 
 function initials(name: string): string {
@@ -369,10 +482,7 @@ export function CertificateVerifyPage() {
     };
   }, [id]);
 
-  const view = useMemo(
-    () => (data ? buildTemplateView(data) || buildGenericView(data) : null),
-    [data]
-  );
+  const view = useMemo(() => (data ? buildView(data) : null), [data]);
 
   if (loading) {
     return (
@@ -398,7 +508,6 @@ export function CertificateVerifyPage() {
   const fullName = V(v, 'FULLNAME_RU', 'FULLNAME_UZ', 'FULLNAME_EN');
   const regNo = V(v, 'REG_NO') || data.serialNumber || '';
   const orgName = V(v, 'ORG_NAME', 'CER_TYPE');
-  const issuedAtStr = formatIso(data.issuedAt);
 
   const verifyUrl =
     typeof window !== 'undefined'
@@ -419,18 +528,6 @@ export function CertificateVerifyPage() {
             <div className="cert-doc-sub">{view.docSub}</div>
             {regNo && <div className="cert-doc-no">№ {regNo}</div>}
           </header>
-
-          {/* Статус проверки */}
-          <div className="cert-status">
-            <CheckCircleFilled className="cert-status-icon" />
-            <div className="cert-status-text">
-              <div className="cert-status-title">Подлинность подтверждена</div>
-              <div className="cert-status-sub">
-                Документ найден в реестре выданных документов
-                {issuedAtStr ? ` · зарегистрирован ${issuedAtStr}` : ''}
-              </div>
-            </div>
-          </div>
 
           {/* Владелец */}
           <section className="cert-holder">
@@ -459,18 +556,6 @@ export function CertificateVerifyPage() {
                   </div>
                 ))}
               </dl>
-            </section>
-          )}
-
-          {/* Подписи */}
-          {view.signatories.length > 0 && (
-            <section className="cert-signs">
-              {view.signatories.map((s) => (
-                <div className="cert-sign" key={s.label}>
-                  <div className="cert-sign-value">{s.value}</div>
-                  <div className="cert-sign-label">{s.label}</div>
-                </div>
-              ))}
             </section>
           )}
 

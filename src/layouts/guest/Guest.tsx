@@ -3,7 +3,6 @@ import {
   Drawer,
   FloatButton,
   Layout,
-  Select,
   Space,
   Switch,
   theme,
@@ -29,58 +28,14 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { useMediaQuery } from 'react-responsive';
 import { motion } from 'framer-motion';
-import { Logo, NProgress } from '../../components';
+import { LanguageSelect, Logo, NProgress } from '../../components';
 import { PATH_AUTH, PATH_COURSE, PATH_LANDING } from '../../constants';
 import { toggleTheme } from '../../redux/theme/themeSlice.ts';
-import { setLanguage } from '../../redux/language/languageSlice.ts';
 import type { RootState } from '../../redux/store.ts';
-import { LANGUAGE_OPTIONS } from '../../i18n';
 import { useAppTranslation } from '../../hooks/useAppTranslation.ts';
-import uzbekistanFlag from '../../assets/flags/uzbekistan.svg';
-import russiaFlag from '../../assets/flags/russia.svg';
 
 const { Header, Content, Footer } = Layout;
 const { Text, Title } = Typography;
-
-const LANGUAGE_FLAG_MAP = {
-  uz: uzbekistanFlag,
-  ru: russiaFlag,
-  'uz-Cyrl': uzbekistanFlag,
-} as const;
-
-const renderLanguageOption = (option: (typeof LANGUAGE_OPTIONS)[number]) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-    <img
-      src={LANGUAGE_FLAG_MAP[option.value]}
-      alt={option.label}
-      style={{
-        width: 22,
-        height: 16,
-        objectFit: 'cover',
-        borderRadius: 999,
-        boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12)',
-        flexShrink: 0,
-      }}
-    />
-    <span
-      style={{
-        color: 'var(--color-text)',
-        fontWeight: 600,
-        fontSize: 16,
-        lineHeight: 1.2,
-        flex: 1,
-        minWidth: 0,
-      }}
-    >
-      {option.label}
-    </span>
-  </div>
-);
-
-const LANGUAGE_SELECT_OPTIONS = LANGUAGE_OPTIONS.map((option) => ({
-  value: option.value,
-  label: renderLanguageOption(option),
-}));
 
 export const GuestLayout = () => {
   const isMobile = useMediaQuery({ maxWidth: 992 });
@@ -217,16 +172,7 @@ export const GuestLayout = () => {
                     </a>
                   ))}
                 </nav>
-                <Select
-                  value={language}
-                  options={LANGUAGE_SELECT_OPTIONS}
-                  size="large"
-                  className="theme-language-select"
-                  popupClassName="theme-language-dropdown"
-                  dropdownStyle={{ borderRadius: 18, padding: 6 }}
-                  style={{ width: 176 }}
-                  onChange={(value) => dispatch(setLanguage(value))}
-                />
+                <LanguageSelect />
                 <Switch
                   checkedChildren={<SunOutlined />}
                   unCheckedChildren={<MoonOutlined />}
@@ -343,16 +289,7 @@ export const GuestLayout = () => {
         }}
       >
         <Space direction="vertical" size={14} style={{ width: '100%' }}>
-          <Select
-            value={language}
-            options={LANGUAGE_SELECT_OPTIONS}
-            size="large"
-            className="theme-language-select"
-            popupClassName="theme-language-dropdown"
-            style={{ width: '100%' }}
-            dropdownStyle={{ borderRadius: 18, padding: 6 }}
-            onChange={(value) => dispatch(setLanguage(value))}
-          />
+          <LanguageSelect width="100%" />
           {navItems.map((item) => (
             <a
               key={item.label}

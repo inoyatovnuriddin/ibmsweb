@@ -32,7 +32,6 @@ import {
   EditOutlined,
   FileSearchOutlined,
   GlobalOutlined,
-  HomeOutlined,
   InfoCircleOutlined,
   LockOutlined,
   LogoutOutlined,
@@ -390,10 +389,15 @@ export const UserAccountLayout = () => {
           <div className="profile-topbar-main">
             {!isDesktop ? (
               <Button
+                type="primary"
+                ghost
                 icon={<MenuOutlined />}
                 onClick={() => setMobileSidebarOpen(true)}
                 className="profile-topbar-menu-btn"
-              />
+                aria-label={t('user.menu')}
+              >
+                {t('user.menu')}
+              </Button>
             ) : null}
             <Logo color="blue" asLink href={PATH_LANDING.root} imgSize={{ h: isDesktop ? 54 : 44 }} />
             <div className="profile-topbar-title">
@@ -415,19 +419,17 @@ export const UserAccountLayout = () => {
           </div>
 
           <Space size={10} wrap className="profile-topbar-actions">
-            <Link to={PATH_LANDING.root}>
-              <Button icon={<HomeOutlined />} className="profile-topbar-action-btn">
-                {t('nav.home')}
-              </Button>
-            </Link>
-
-            <Switch
-              checkedChildren={<SunOutlined />}
-              unCheckedChildren={<MoonOutlined />}
-              checked={mytheme === 'dark'}
-              onClick={() => dispatch(toggleTheme())}
-              style={{ flexShrink: 0 }}
-            />
+            {/* Тема переключается только на широком экране: на телефоне тот же
+                переключатель уже есть в разделе «Настройки». */}
+            {isDesktop ? (
+              <Switch
+                checkedChildren={<SunOutlined />}
+                unCheckedChildren={<MoonOutlined />}
+                checked={mytheme === 'dark'}
+                onClick={() => dispatch(toggleTheme())}
+                style={{ flexShrink: 0 }}
+              />
+            ) : null}
 
             <Dropdown menu={{ items: profileDropdownItems }} trigger={['click']}>
               <Button
@@ -440,14 +442,17 @@ export const UserAccountLayout = () => {
                     icon={<UserOutlined />}
                     size={isDesktop ? 38 : 34}
                   />
-                  <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
-                    <Text style={{ display: 'block', color: token.colorText, fontSize: isDesktop ? 14 : 13 }}>
-                      {user ? `${user.firstname} ${user.lastname}` : t('dashboard.profile')}
-                    </Text>
-                    <Text style={{ color: token.colorTextSecondary, fontSize: 12 }}>
-                      {isDesktop ? t('user.menu') : t('user.profileMenu')}
-                    </Text>
-                  </div>
+                  {/* На телефоне имя не помещается рядом с кнопкой меню — оставляем аватар. */}
+                  {isDesktop ? (
+                    <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
+                      <Text style={{ display: 'block', color: token.colorText, fontSize: 14 }}>
+                        {user ? `${user.firstname} ${user.lastname}` : t('dashboard.profile')}
+                      </Text>
+                      <Text style={{ color: token.colorTextSecondary, fontSize: 12 }}>
+                        {t('user.menu')}
+                      </Text>
+                    </div>
+                  ) : null}
                 </Space>
               </Button>
             </Dropdown>

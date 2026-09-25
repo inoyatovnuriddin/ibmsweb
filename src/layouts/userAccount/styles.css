@@ -16,10 +16,13 @@
   flex: 1 1 420px;
 }
 
+/* Кнопка меню видна только на узком экране — это главный способ открыть разделы,
+   поэтому у неё есть подпись и размер удобного для пальца нажатия. */
 .profile-topbar-menu-btn {
-  width: 42px;
   height: 42px;
+  padding-inline: 14px;
   border-radius: 12px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 

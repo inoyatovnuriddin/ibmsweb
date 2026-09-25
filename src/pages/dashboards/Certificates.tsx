@@ -39,6 +39,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { debounce } from 'lodash';
 import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../services/api';
+import { applyDate, buildDateGroups } from './certificateDates';
 import {
   CertificateVerification,
   deleteCertificate,
@@ -343,6 +344,15 @@ export const DashboardCertificatesPage = () => {
       setPhotoUploading(false);
     }
   };
+
+  // Даты бланка (день / месяц / год лежат в разных ключах) редактируются одним
+  // календарём на группу: см. ./certificateDates.
+  const dateGroups = useMemo(() => buildDateGroups(editValues), [editValues]);
+
+  const plainKeys = useMemo(
+    () => Object.keys(editValues).filter((k) => !dateGroups.handledKeys.has(k)),
+    [editValues, dateGroups]
+  );
 
   const saveEdit = async () => {
     if (!editing) return;
@@ -672,11 +682,47 @@ export const DashboardCertificatesPage = () => {
             </Col>
           </Row>
 
+          {dateGroups.groups.length > 0 && (
+            <>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Sanalar — kalendardan tanlang. Hujjatdagi yozilish uslubi (oy nomi, kun formati)
+                avtomatik saqlanadi:
+              </Text>
+              <Row gutter={12} style={{ marginTop: 8 }}>
+                {dateGroups.groups.map((group) => (
+                  <Col xs={24} md={12} key={group.label}>
+                    <Form.Item
+                      label={
+                        <span>
+                          {group.label}{' '}
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            ({group.keys.join(', ')})
+                          </Text>
+                        </span>
+                      }
+                      style={{ marginBottom: 12 }}
+                    >
+                      <DatePicker
+                        value={group.value}
+                        format="DD.MM.YYYY"
+                        allowClear={false}
+                        style={{ width: '100%' }}
+                        onChange={(date) =>
+                          date && setEditValues((prev) => applyDate(prev, group.keys, date))
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+            </>
+          )}
+
           <Text type="secondary" style={{ fontSize: 12 }}>
             Hujjat maydonlari (oʻzgartirilsa, yuklab olingan Word va tekshirish sahifasi yangilanadi):
           </Text>
           <Row gutter={12} style={{ marginTop: 8 }}>
-            {Object.keys(editValues).map((key) => (
+            {plainKeys.map((key) => (
               <Col xs={24} md={12} key={key}>
                 <Form.Item
                   label={

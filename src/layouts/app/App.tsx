@@ -5,25 +5,21 @@ import {
   Dropdown,
   FloatButton,
   Grid,
-  Input,
   Layout,
   MenuProps,
   message,
   Space,
   Switch,
-  Tag,
   theme,
   Typography,
 } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BellOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
-  SearchOutlined,
   SettingOutlined,
   SunOutlined,
   UserOutlined,
@@ -36,7 +32,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import SideNav, { AdminSideNavContent } from './SideNav.tsx';
 import FooterNav from './FooterNav.tsx';
-import { NProgress } from '../../components';
+import { LanguageSelect, NProgress } from '../../components';
 import { PATH_LANDING } from '../../constants';
 import { toggleTheme } from '../../redux/theme/themeSlice.ts';
 import { RootState } from '../../redux/store.ts';
@@ -250,22 +246,6 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                     {currentSection}
                   </Title>
                 </div>
-                {isDesktop ? (
-                  <Tag
-                    style={{
-                      margin: 0,
-                      borderRadius: 999,
-                      padding: '6px 12px',
-                      background: mytheme === 'dark'
-                        ? 'var(--color-fill-hover)'
-                        : '#eef4ff',
-                      color: mytheme === 'dark' ? '#93c5fd' : '#1d4ed8',
-                      border: '1px solid rgba(29,78,216,0.18)',
-                    }}
-                    >
-                    {t('dashboard.admin')}
-                  </Tag>
-                ) : null}
               </div>
 
               <div
@@ -278,25 +258,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                   width: isDesktop ? 'auto' : '100%',
                 }}
               >
-                <Input
-                  prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                  placeholder={t('app.search')}
-                  style={{
-                    width: isDesktop ? 240 : '100%',
-                    maxWidth: '100%',
-                    borderRadius: 12,
-                    flex: isDesktop ? '0 0 auto' : '1 1 100%',
-                  }}
-                />
-                <Button
-                  icon={<BellOutlined />}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    flexShrink: 0,
-                  }}
-                />
+                {/* Тот же переключатель языка, что и на главной. */}
+                <LanguageSelect compact size="middle" width={isDesktop ? 160 : 140} />
                 <Switch
                   checkedChildren={<SunOutlined />}
                   unCheckedChildren={<MoonOutlined />}

@@ -142,7 +142,7 @@ export default function SertifikatTemplateForm() {
         initialValues={{
           hours: 72,
           trainingPeriod: [dayjs('2026-02-09'), dayjs('2026-02-18')],
-          issueDate: dayjs('2026-02-18'),
+          issueDate: dayjs(),
           director: 'Нуриддинов З.И.',
         }}
       >

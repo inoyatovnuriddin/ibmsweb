@@ -1,7 +1,7 @@
 import { Card, Col, DatePicker, Form, Input, message, Row, Select, Spin } from 'antd';
 import { debounce } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../../services/api';
 import { CertificateRequest, getCertificateErrorMessage } from '../certificatesApi';
 import { CertificateActions, useCertificateActions } from './certificateActions';
@@ -142,7 +142,7 @@ export default function DiplomaTemplateForm() {
 
   return (
     <Card title="Guvohnoma maʼlumotlarini kiriting" className="max-w-4xl mx-auto mt-6">
-      <Form<DiplomaFormValues> layout="vertical" form={form} onFinish={onFinish}>
+      <Form<DiplomaFormValues> layout="vertical" form={form} onFinish={onFinish} initialValues={{ issueDate: dayjs() }}>
         <Row gutter={16}>
           <Col xs={24} md={8}>
             <Form.Item label="Guvohnoma raqami" name="diplomaNumber" rules={[{ required: true, message: 'Raqamni kiriting!' }]}>

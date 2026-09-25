@@ -1,7 +1,7 @@
 import { Card, Col, DatePicker, Form, Input, message, Row, Select, Spin } from 'antd';
 import { debounce } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { apiClient } from '../../../services/api';
 import { CertificateRequest, getCertificateErrorMessage } from '../certificatesApi';
 import { CertificateActions, useCertificateActions } from './certificateActions';
@@ -119,7 +119,7 @@ export default function CertificateBasicTemplate4Form() {
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{ organizationName: ORGANIZATIONS[0], elecGroup: 'III' }}
+        initialValues={{ issueDate: dayjs(), organizationName: ORGANIZATIONS[0], elecGroup: 'III' }}
       >
         <Row gutter={16}>
           <Col xs={24} md={8}>
