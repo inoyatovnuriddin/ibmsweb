@@ -4,6 +4,7 @@ import {
   DatePicker,
   Form,
   Input,
+  InputNumber,
   message,
   Row,
   Select,
@@ -51,6 +52,7 @@ interface EquipmentPermitValues {
   regNo: string;
   userId: string;
   courseId: string;
+  hours: number;
   equipment: string;
   organizationName: string;
   organizationCity: string;
@@ -133,6 +135,7 @@ export default function EquipmentPermitTemplateForm() {
     regNo: values.regNo.trim(),
     userId: values.userId,
     courseId: values.courseId,
+    hours: String(values.hours),
     equipment: values.equipment.trim(),
     organizationName: values.organizationName,
     organizationCity: values.organizationCity?.trim(),
@@ -244,6 +247,16 @@ export default function EquipmentPermitTemplateForm() {
           <Col xs={24} md={6}>
             <Form.Item label="Протокол №" name="protocolNumber" rules={[{ required: true, message: 'Kiriting!' }]}>
               <Input placeholder="Masalan: 101" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

@@ -4,6 +4,7 @@ import {
   DatePicker,
   Form,
   Input,
+  InputNumber,
   message,
   Row,
   Select,
@@ -58,6 +59,7 @@ interface CompactPermitValues {
   regNo: string;
   userId: string;
   courseId: string;
+  hours: number;
   qualification: string;
   equipment: string;
   organizationName: string;
@@ -143,6 +145,7 @@ export default function CompactPermitTemplateForm() {
       regNo: values.regNo.trim(),
       userId: values.userId,
       courseId: values.courseId,
+      hours: String(values.hours),
       equipment: values.equipment.trim(),
       organizationName: values.organizationName,
       // Template-specific placeholders resolved on the client (see class doc).
@@ -249,6 +252,16 @@ export default function CompactPermitTemplateForm() {
           <Col xs={24} md={12}>
             <Form.Item label="Обучался(лась) с / по" name="trainingPeriod" rules={[{ required: true, message: 'Davrni tanlang!' }]}>
               <RangePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

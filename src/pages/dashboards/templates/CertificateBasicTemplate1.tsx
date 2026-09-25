@@ -41,6 +41,7 @@ interface DiplomaFormValues {
   regNo: string;
   userId: string;
   courseId: string;
+  hours: number;
   trainingPeriod: [Dayjs, Dayjs];
   organizationName: string;
   grade: number;
@@ -116,6 +117,7 @@ export default function CertificateBasicTemplate1Form() {
     regNo: values.regNo.trim(),
     userId: values.userId,
     courseId: values.courseId,
+    hours: String(values.hours),
     dateFrom: values.trainingPeriod[0].format('YYYY-MM-DD'),
     dateTo: values.trainingPeriod[1].format('YYYY-MM-DD'),
     organizationName: values.organizationName.trim(),
@@ -213,6 +215,16 @@ export default function CertificateBasicTemplate1Form() {
           <Col xs={24} md={8}>
             <Form.Item label="Protokol №" name="protocolNumber" rules={[{ required: true, message: 'Protokol raqamini kiriting!' }]}>
               <Input placeholder="Masalan: 142" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

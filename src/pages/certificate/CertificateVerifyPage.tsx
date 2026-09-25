@@ -440,13 +440,28 @@ function leftoverRows(values: Values, read: Set<string>): DetailRow[] {
   return b.rows;
 }
 
+/**
+ * Объём программы в часах печатается далеко не на каждом бланке, но на странице
+ * проверки он нужен всегда. Ставим его рядом с периодом обучения, а не в конец списка.
+ */
+function withHours(rows: DetailRow[], values: Values): DetailRow[] {
+  const hours = V(values, 'HOURS');
+  if (!hours) return rows;
+  const row: DetailRow = { label: 'Объём программы', value: asHours(hours) };
+  const at = rows.findIndex((r) => r.label === 'Период обучения');
+  if (at < 0) return [...rows, row];
+  return [...rows.slice(0, at), row, ...rows.slice(at)];
+}
+
 /** Вид документа + значения, которые шаблон не показал. */
 function buildView(data: CertificateVerification): TemplateView {
+  const values = data.values || {};
   readKeys = new Set<string>();
   try {
     const view = buildTemplateView(data) || buildGenericView(data);
-    const extra = leftoverRows(data.values || {}, readKeys);
-    return extra.length ? { ...view, rows: [...view.rows, ...extra] } : view;
+    // Шаблоны, где часы есть в бланке, уже вывели их сами.
+    const rows = readKeys.has('HOURS') ? view.rows : withHours(view.rows, values);
+    return { ...view, rows: [...rows, ...leftoverRows(values, readKeys)] };
   } finally {
     readKeys = null;
   }

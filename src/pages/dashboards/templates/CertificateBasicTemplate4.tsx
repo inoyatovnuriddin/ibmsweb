@@ -1,4 +1,4 @@
-import { Card, Col, DatePicker, Form, Input, message, Row, Select, Spin } from 'antd';
+import { Card, Col, DatePicker, Form, Input, InputNumber, message, Row, Select, Spin } from 'antd';
 import { debounce } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
@@ -37,6 +37,7 @@ interface EventFormValues {
   organizationName: string;
   trainingPeriod: [Dayjs, Dayjs];
   protocolNumber: string;
+  hours: number;
   protocolDate: Dayjs;
   elecGroup: string;
   chairman: string;
@@ -91,6 +92,7 @@ export default function CertificateBasicTemplate4Form() {
     dateFrom: values.trainingPeriod[0].format('YYYY-MM-DD'),
     dateTo: values.trainingPeriod[1].format('YYYY-MM-DD'),
     protocolNumber: values.protocolNumber.trim(),
+    hours: String(values.hours),
     protocolDate: values.protocolDate.format('YYYY-MM-DD'),
     elecGroup: values.elecGroup,
     chairman: values.chairman?.trim(),
@@ -159,6 +161,16 @@ export default function CertificateBasicTemplate4Form() {
           <Col xs={24} md={8}>
             <Form.Item label="Protokol №" name="protocolNumber" rules={[{ required: true, message: 'Protokol raqamini kiriting!' }]}>
               <Input placeholder="Masalan: 101" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

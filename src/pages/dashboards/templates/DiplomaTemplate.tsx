@@ -1,4 +1,4 @@
-import { Card, Col, DatePicker, Form, Input, message, Row, Select, Spin } from 'antd';
+import { Card, Col, DatePicker, Form, Input, InputNumber, message, Row, Select, Spin } from 'antd';
 import { debounce } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
@@ -40,6 +40,7 @@ interface DiplomaFormValues {
   diplomaNumber: string;
   userId: string;
   courseId: string;
+  hours: number;
   cerType: string;
   rank: number;
   protocolNumber: string;
@@ -115,6 +116,7 @@ export default function DiplomaTemplateForm() {
     regNo: values.diplomaNumber.trim(),
     userId: values.userId,
     courseId: values.courseId,
+    hours: String(values.hours),
     organizationName: values.cerType,
     grade: String(values.rank),
     protocolNumber: values.protocolNumber.trim(),
@@ -210,6 +212,16 @@ export default function DiplomaTemplateForm() {
           <Col xs={24} md={8}>
             <Form.Item label="Bayonnoma №" name="protocolNumber" rules={[{ required: true, message: 'Bayonnoma raqamini kiriting!' }]}>
               <Input placeholder="Masalan: 48/1" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

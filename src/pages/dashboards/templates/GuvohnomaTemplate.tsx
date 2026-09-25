@@ -52,6 +52,7 @@ interface GuvohnomaValues {
   regNo: string;
   userId: string;
   courseId: string;
+  hours: number;
   grade: number;
   organizationName: string;
   protocolNumber: string;
@@ -133,6 +134,7 @@ export default function GuvohnomaTemplateForm() {
     regNo: values.regNo.trim(),
     userId: values.userId,
     courseId: values.courseId,
+    hours: String(values.hours),
     grade: String(values.grade),
     organizationName: values.organizationName,
     protocolNumber: values.protocolNumber.trim(),
@@ -225,6 +227,16 @@ export default function GuvohnomaTemplateForm() {
           <Col xs={24} md={6}>
             <Form.Item label="Bayonnoma № (Протокол №)" name="protocolNumber" rules={[{ required: true, message: 'Kiriting!' }]}>
               <Input placeholder="Masalan: 101" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Soat (часовая программа)"
+              name="hours"
+              rules={[{ required: true, message: 'Soat sonini kiriting!' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} placeholder="Masalan: 72" />
             </Form.Item>
           </Col>
 

@@ -133,6 +133,12 @@ const FIELD_LABELS: Record<string, string> = {
 // Internal keys never shown for editing.
 const HIDDEN_KEYS = new Set(['QR_DATA']);
 
+/**
+ * Объём программы в часах. У старых сертификатов этого ключа просто нет,
+ * поэтому поле показываем всегда — а не только когда он уже заполнен.
+ */
+const HOURS_KEY = 'HOURS';
+
 const recipientOf = (c: CertificateVerification) =>
   c.values?.FULLNAME_RU || c.values?.FULLNAME_UZ || c.values?.FULLNAME_EN || '—';
 
@@ -350,7 +356,10 @@ export const DashboardCertificatesPage = () => {
   const dateGroups = useMemo(() => buildDateGroups(editValues), [editValues]);
 
   const plainKeys = useMemo(
-    () => Object.keys(editValues).filter((k) => !dateGroups.handledKeys.has(k)),
+    () =>
+      Object.keys(editValues).filter(
+        (k) => !dateGroups.handledKeys.has(k) && k !== HOURS_KEY
+      ),
     [editValues, dateGroups]
   );
 
@@ -358,11 +367,17 @@ export const DashboardCertificatesPage = () => {
     if (!editing) return;
     setSaving(true);
     try {
+      // Пустые часы не сохраняем — иначе у сертификата появится пустой ключ HOURS.
+      const valuesToSave = { ...editValues };
+      if (!valuesToSave[HOURS_KEY]?.trim() && editing.values?.[HOURS_KEY] == null) {
+        delete valuesToSave[HOURS_KEY];
+      }
+
       const updated = await updateCertificate(editing.id, {
         documentTitle: editTitle.trim(),
         serialNumber: editSerial.trim(),
         photoUrl: editPhoto,
-        values: editValues,
+        values: valuesToSave,
       });
       if (updated) {
         setItems((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
@@ -717,6 +732,30 @@ export const DashboardCertificatesPage = () => {
               </Row>
             </>
           )}
+
+          <Row gutter={12} style={{ marginTop: 8 }}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label={
+                  <span>
+                    Dastur hajmi, soat{' '}
+                    <Text type="secondary" style={{ fontSize: 11 }}>({HOURS_KEY})</Text>
+                  </span>
+                }
+                extra="Blankada chop etilmasa ham, tekshirish sahifasida koʻrinadi."
+                style={{ marginBottom: 12 }}
+              >
+                <Input
+                  value={editValues[HOURS_KEY] ?? ''}
+                  onChange={(e) =>
+                    setEditValues((prev) => ({ ...prev, [HOURS_KEY]: e.target.value }))
+                  }
+                  placeholder="Masalan: 72"
+                  suffix={<Text type="secondary">soat</Text>}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Text type="secondary" style={{ fontSize: 12 }}>
             Hujjat maydonlari (oʻzgartirilsa, yuklab olingan Word va tekshirish sahifasi yangilanadi):
